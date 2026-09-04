@@ -61,11 +61,14 @@ go install github.com/tu-usuario/nombre-repo/cmd/downloader@latest
 git clone https://github.com/tu-usuario/nombre-repo.git
 cd nombre-repo
 
-# Compilar binario
-go build -o bin/[NOMBRE_POR_DEFINIR] ./cmd/downloader
+# Compilar binario (con inyección de versión opcional)
+go build -ldflags "-X main.Version=1.1.0 -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo dev) -X main.BuildDate=$(date +%Y-%m-%d)" -o bin/godownloader ./cmd/downloader
+
+# Consultar versión
+./bin/godownloader --version
 
 # Ejecutar
-./bin/[NOMBRE_POR_DEFINIR]
+./bin/godownloader
 ```
 
 ---

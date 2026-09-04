@@ -3,6 +3,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -10,7 +11,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
+
+// InitColorProfile sets Lipgloss color profile to Ascii if NO_COLOR is defined.
+func InitColorProfile() {
+	if os.Getenv("NO_COLOR") != "" {
+		lipgloss.SetColorProfile(termenv.Ascii)
+	}
+}
 
 // SplashStage represents a discrete milestone during the boot sequence.
 type SplashStage struct {
@@ -30,43 +39,43 @@ var defaultStages = []SplashStage{
 const defaultBanner = `  █▀▀ ▄▀█ █▀▄▀█ █▀█ █ █ █▀   █▀▀ █▀▀ ▀█▀ █▀▀ █ █
   █▄▄ █▀█ █ ▀ █ █▀▀ █▄█ ▄█   █▀  ██▄  █  █▄▄ █▀█`
 
-// Lip Gloss styles tailored to modern dark terminal themes (Catppuccin/Dracula inspired)
+// Lip Gloss styles tailored with adaptive colors for both light and dark backgrounds
 var (
 	cardBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#7D56F4")). // Charm Purple
+			BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
 			Padding(1, 3).
 			MarginTop(1).
 			MarginBottom(1)
 
 	logoStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#BD93F9")) // Lavender accent
+			Foreground(lipgloss.AdaptiveColor{Light: "#6B3AD4", Dark: "#BD93F9"})
 
 	subtitleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#8BE9FD")). // Electric cyan
+			Foreground(lipgloss.AdaptiveColor{Light: "#007799", Dark: "#8BE9FD"}).
 			Bold(true)
 
 	statusIconStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#50FA7B")). // Mint green
+			Foreground(lipgloss.AdaptiveColor{Light: "#1B7B34", Dark: "#50FA7B"}).
 			Bold(true)
 
 	statusTextStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#F8F8F2")). // Crisp white
+			Foreground(lipgloss.AdaptiveColor{Light: "#111111", Dark: "#F8F8F2"}).
 			Bold(true)
 
 	gaugeFilledStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#7D56F4")) // Charm Purple filled bar
+				Foreground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"})
 
 	gaugeEmptyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#44475A")) // Muted bar track
+			Foreground(lipgloss.AdaptiveColor{Light: "#CCCCCC", Dark: "#44475A"})
 
 	percentStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#BD93F9")).
+			Foreground(lipgloss.AdaptiveColor{Light: "#6B3AD4", Dark: "#BD93F9"}).
 			Bold(true)
 
 	hintStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6272A4")). // Muted slate
+			Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#6272A4"}).
 			Italic(true)
 )
 
@@ -125,9 +134,11 @@ type SplashModel struct {
 
 // NewSplash constructs a new SplashModel transitioning to nextModel upon completion.
 func NewSplash(nextModel tea.Model, opts ...Option) *SplashModel {
+	InitColorProfile()
+
 	s := spinner.New()
 	s.Spinner = spinner.MiniDot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("#8BE9FD"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#007799", Dark: "#8BE9FD"})
 
 	totalDuration := 1200 * time.Millisecond // 1.2s default: non-blocking & snappy
 	tickInterval := 40 * time.Millisecond   // ~25 FPS

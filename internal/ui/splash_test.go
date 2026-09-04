@@ -147,3 +147,16 @@ func TestSplash_WindowSize(t *testing.T) {
 		t.Errorf("expected non-empty view")
 	}
 }
+
+func TestSplash_NoColor(t *testing.T) {
+	t.Setenv("NO_COLOR", "1")
+	ui.InitColorProfile()
+
+	dummy := &dummyModel{}
+	splash := ui.NewSplash(dummy)
+	view := splash.View()
+
+	if strings.Contains(view, "\x1b[38;") || strings.Contains(view, "\x1b[48;") {
+		t.Errorf("expected no ANSI color sequences when NO_COLOR=1, got: %q", view)
+	}
+}

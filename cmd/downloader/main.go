@@ -2,11 +2,12 @@
 package main
 
 import (
+	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
-	"strings"
+	"os/signal"
+	"syscall"
 
 	"godownloader/internal/kernel"
 	"godownloader/internal/logger"
@@ -15,88 +16,25 @@ import (
 	"godownloader/internal/tui"
 )
 
-type loggerFlag struct {
-	enabled  bool
-	filePath string
-}
-
-func (f *loggerFlag) String() string {
-	return f.filePath
-}
-
-func (f *loggerFlag) Set(s string) error {
-	f.enabled = true
-	switch s {
-	case "true", "":
-		f.filePath = "godownloader_debug.txt"
-	case "false":
-		f.enabled = false
-	default:
-		f.filePath = s
-	}
-	return nil
-}
-
-func (f *loggerFlag) IsBoolFlag() bool {
-	return true
-}
-
 func main() {
-	concurrencyFlag := flag.Int("concurrency", 5, "Número de descargas concurrentes")
-	outputDirFlag := flag.String("output", ".", "Directorio donde guardar los archivos descargados")
-	demoFlag := flag.Bool("demo", false, "Ejecutar en modo demostración para showcases (simula descargas de PDFs con cualquier token y links)")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	var logCfg loggerFlag
-	flag.Var(&logCfg, "logger", "Habilitar registro de depuración en archivo (por defecto 'godownloader_debug.txt') o especificar ruta (ej. -logger debug.txt)")
-	flag.Var(&logCfg, "log", "Alias para -logger")
-	logFilePathExplicit := flag.String("logfile", "", "Especificar ruta personalizada para el archivo de registro")
-	flag.Parse()
-
-	// Check if a path argument followed -logger or -log
-	if flag.NArg() > 0 && logCfg.enabled && logCfg.filePath == "godownloader_debug.txt" {
-		arg := flag.Arg(0)
-		if strings.HasSuffix(arg, ".txt") || strings.HasSuffix(arg, ".log") {
-			logCfg.filePath = arg
+	if err := Execute(ctx); err != nil {
+		code := DetermineExitCode(err, ctx)
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, tui.ErrFormAborted) {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
+		os.Exit(code)
 	}
-	if *logFilePathExplicit != "" {
-		logCfg.enabled = true
-		logCfg.filePath = *logFilePathExplicit
-	}
-
-	formData, err := tui.RunInteractiveForm(*demoFlag)
-	if err != nil {
-		if errors.Is(err, tui.ErrFormAborted) {
-			fmt.Println("\nDescarga cancelada por el usuario.")
-			os.Exit(0)
-		}
-		fmt.Fprintf(os.Stderr, "Error al capturar datos del formulario: %v\n", err)
-		os.Exit(1)
-	}
-
-	appLogger, logPath := setupLogger(logCfg, *concurrencyFlag, *outputDirFlag, formData, *demoFlag)
-	if appLogger != nil {
-		defer func() { _ = appLogger.Close() }()
-	}
-
-	tasks := createTasks(formData, *outputDirFlag)
-	k := initKernel(*concurrencyFlag, appLogger, *demoFlag)
-
-	results, err := tui.RunProgressUI(k, tasks, logPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error durante la ejecución de las descargas: %v\n", err)
-		os.Exit(1)
-	}
-
-	handleCompletion(results, logPath)
 }
 
-func setupLogger(cfg loggerFlag, concurrency int, outputDir string, form *tui.FormData, isDemo bool) (*logger.Logger, string) {
-	if !cfg.enabled {
+func setupLogger(logPath string, concurrency int, outputDir string, form *tui.FormData, isDemo bool) (*logger.Logger, string) {
+	if logPath == "" {
 		return nil, ""
 	}
 
-	l, err := logger.New(cfg.filePath)
+	l, err := logger.New(logPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Advertencia: no se pudo inicializar el registro de depuración: %v\n", err)
 		return nil, ""
@@ -109,7 +47,7 @@ func setupLogger(cfg loggerFlag, concurrency int, outputDir string, form *tui.Fo
 	}
 	l.Printf("Cookie de sesión: %s", logger.RedactCookie(form.Cookie))
 	l.Printf("Total de URLs en cola: %d", len(form.URLs))
-	return l, cfg.filePath
+	return l, logPath
 }
 
 func createTasks(form *tui.FormData, outputDir string) []kernel.Task {
@@ -135,7 +73,7 @@ func initKernel(concurrency int, l *logger.Logger, isDemo bool) *kernel.Kernel {
 				demo.New(demo.WithLogger(l)),
 			}),
 		)
-	} else if l != nil {
+	} else {
 		opts = append(opts,
 			kernel.WithPlugins([]kernel.DownloaderPlugin{
 				moodle.New(moodle.WithLogger(l)),
@@ -148,12 +86,11 @@ func initKernel(concurrency int, l *logger.Logger, isDemo bool) *kernel.Kernel {
 	return kernel.New(opts...)
 }
 
-func handleCompletion(results []kernel.Result, logPath string) {
-	var hasErrors bool
+func handleCompletion(results []kernel.Result, logPath string) error {
+	var failedResults []kernel.Result
 	for _, res := range results {
 		if res.Err != nil {
-			hasErrors = true
-			break
+			failedResults = append(failedResults, res)
 		}
 	}
 
@@ -161,7 +98,8 @@ func handleCompletion(results []kernel.Result, logPath string) {
 		fmt.Printf("\n📄 Registro de depuración guardado en: %s\n", logPath)
 	}
 
-	if hasErrors {
-		os.Exit(1)
+	if len(failedResults) > 0 {
+		return &BatchError{Results: failedResults}
 	}
+	return nil
 }

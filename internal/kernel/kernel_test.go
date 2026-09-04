@@ -63,16 +63,16 @@ func (m *mockPlugin) Download(ctx context.Context, task kernel.Task, progress ke
 }
 
 func TestRegistry_RegisterAndRetrieve(t *testing.T) {
-	kernel.ResetRegistry()
-	defer kernel.ResetRegistry()
+	t.Parallel()
+	r := kernel.NewRegistry()
 
 	p1 := &mockPlugin{name: "p1", prefix: "https://p1.test"}
-	kernel.Register(p1)
+	r.Register(p1)
 
 	// Idempotent test
-	kernel.Register(p1)
+	r.Register(p1)
 
-	registered := kernel.RegisteredPlugins()
+	registered := r.Plugins()
 	if len(registered) != 1 {
 		t.Fatalf("expected 1 plugin registered, got %d", len(registered))
 	}
@@ -82,15 +82,18 @@ func TestRegistry_RegisterAndRetrieve(t *testing.T) {
 }
 
 func TestRegistry_NilPanic(t *testing.T) {
+	t.Parallel()
+	r := kernel.NewRegistry()
 	defer func() {
-		if r := recover(); r == nil {
+		if rec := recover(); rec == nil {
 			t.Errorf("expected panic when registering nil plugin, got none")
 		}
 	}()
-	kernel.Register(nil)
+	r.Register(nil)
 }
 
 func TestKernel_ResolvePlugin(t *testing.T) {
+	t.Parallel()
 	p1 := &mockPlugin{name: "moodle", prefix: "https://campusvirtual.ufro.cl"}
 	p2 := &mockPlugin{name: "canvas", prefix: "https://canvas.edu"}
 
@@ -119,6 +122,7 @@ func TestKernel_ResolvePlugin(t *testing.T) {
 }
 
 func TestKernel_Dispatch_SuccessAndEvents(t *testing.T) {
+	t.Parallel()
 	p := &mockPlugin{name: "test-plugin", prefix: "https://test.com"}
 	k := kernel.New(
 		kernel.WithPlugins([]kernel.DownloaderPlugin{p}),
@@ -168,6 +172,7 @@ func TestKernel_Dispatch_SuccessAndEvents(t *testing.T) {
 }
 
 func TestKernel_Dispatch_TaskFailure(t *testing.T) {
+	t.Parallel()
 	expectedErr := errors.New("network failure")
 	p := &mockPlugin{name: "failing", prefix: "https://fail.com", failWith: expectedErr}
 	k := kernel.New(kernel.WithPlugins([]kernel.DownloaderPlugin{p}))
@@ -196,6 +201,7 @@ func TestKernel_Dispatch_TaskFailure(t *testing.T) {
 }
 
 func TestKernel_Dispatch_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	p := &mockPlugin{name: "slow", prefix: "https://slow.com", delay: 100 * time.Millisecond}
 	k := kernel.New(
 		kernel.WithPlugins([]kernel.DownloaderPlugin{p}),
@@ -217,3 +223,160 @@ func TestKernel_Dispatch_ContextCancellation(t *testing.T) {
 		t.Errorf("expected context.Canceled, got %v", results[0].Err)
 	}
 }
+
+type concurrencyTrackingPlugin struct {
+	onStart func()
+	onEnd   func()
+}
+
+func (c *concurrencyTrackingPlugin) Name() string            { return "tracker" }
+func (c *concurrencyTrackingPlugin) CanHandle(_ string) bool { return true }
+func (c *concurrencyTrackingPlugin) Download(ctx context.Context, task kernel.Task, _ kernel.ProgressFunc) (*kernel.Result, error) {
+	if c.onStart != nil {
+		c.onStart()
+	}
+	defer func() {
+		if c.onEnd != nil {
+			c.onEnd()
+		}
+	}()
+	time.Sleep(2 * time.Millisecond)
+	return &kernel.Result{TaskID: task.ID, URL: task.URL, Filename: "file.pdf"}, nil
+}
+
+func TestKernel_Dispatch_BoundedWorkerPool(t *testing.T) {
+	t.Parallel()
+	var currentActive int64
+	var maxActive int64
+
+	const concurrency = 3
+	const totalTasks = 100
+
+	plugin := &concurrencyTrackingPlugin{
+		onStart: func() {
+			curr := atomic.AddInt64(&currentActive, 1)
+			for {
+				max := atomic.LoadInt64(&maxActive)
+				if curr <= max || atomic.CompareAndSwapInt64(&maxActive, max, curr) {
+					break
+				}
+			}
+		},
+		onEnd: func() {
+			atomic.AddInt64(&currentActive, -1)
+		},
+	}
+
+	k := kernel.New(
+		kernel.WithPlugins([]kernel.DownloaderPlugin{plugin}),
+		kernel.WithConcurrency(concurrency),
+	)
+
+	tasks := make([]kernel.Task, totalTasks)
+	for i := 0; i < totalTasks; i++ {
+		tasks[i] = kernel.Task{ID: i + 1, URL: "https://track.com/file"}
+	}
+
+	results := k.Dispatch(context.Background(), tasks, nil)
+	if len(results) != totalTasks {
+		t.Fatalf("expected %d results, got %d", totalTasks, len(results))
+	}
+
+	for _, r := range results {
+		if r.Err != nil {
+			t.Fatalf("unexpected task error: %v", r.Err)
+		}
+	}
+
+	if peak := atomic.LoadInt64(&maxActive); peak > concurrency {
+		t.Errorf("expected maximum %d concurrent workers, but peak was %d", concurrency, peak)
+	}
+}
+
+func TestKernel_Dispatch_BatchContextExpiration(t *testing.T) {
+	t.Parallel()
+	const totalTasks = 50
+	plugin := &mockPlugin{
+		name:   "slow",
+		prefix: "https://slow.com",
+		delay:  20 * time.Millisecond,
+	}
+
+	k := kernel.New(
+		kernel.WithPlugins([]kernel.DownloaderPlugin{plugin}),
+		kernel.WithConcurrency(2),
+	)
+
+	tasks := make([]kernel.Task, totalTasks)
+	for i := 0; i < totalTasks; i++ {
+		tasks[i] = kernel.Task{ID: i + 1, URL: "https://slow.com/file"}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	results := k.Dispatch(ctx, tasks, nil)
+	if len(results) != totalTasks {
+		t.Fatalf("expected %d results, got %d", totalTasks, len(results))
+	}
+
+	var canceledCount int
+	for _, r := range results {
+		if errors.Is(r.Err, context.DeadlineExceeded) || errors.Is(r.Err, context.Canceled) {
+			canceledCount++
+		}
+	}
+
+	if canceledCount == 0 {
+		t.Errorf("expected at least some tasks to be canceled due to deadline, but none were")
+	}
+}
+
+func TestKernel_Dispatch_CircuitBreakerAuth(t *testing.T) {
+	t.Parallel()
+	plugin := &mockPlugin{
+		name:     "moodle-mock",
+		prefix:   "https://moodle.test",
+		failWith: kernel.ErrAuthenticationFailed,
+	}
+
+	k := kernel.New(
+		kernel.WithPlugins([]kernel.DownloaderPlugin{plugin}),
+		kernel.WithConcurrency(1), // Concurrency 1 ensures task 1 executes first
+	)
+
+	tasks := []kernel.Task{
+		{ID: 1, URL: "https://moodle.test/file1"},
+		{ID: 2, URL: "https://moodle.test/file2"},
+		{ID: 3, URL: "https://moodle.test/file3"},
+		{ID: 4, URL: "https://moodle.test/file4"},
+		{ID: 5, URL: "https://moodle.test/file5"},
+	}
+
+	results := k.Dispatch(context.Background(), tasks, nil)
+	if len(results) != len(tasks) {
+		t.Fatalf("expected %d results, got %d", len(tasks), len(results))
+	}
+
+	// Task 1 failed with ErrAuthenticationFailed
+	if !errors.Is(results[0].Err, kernel.ErrAuthenticationFailed) {
+		t.Fatalf("expected task 1 error to be ErrAuthenticationFailed, got: %v", results[0].Err)
+	}
+
+	// The plugin should only have been called ONCE because circuit breaker tripped immediately
+	if atomic.LoadInt64(&plugin.callCount) != 1 {
+		t.Errorf("expected plugin to be called exactly 1 time, but was called %d times", plugin.callCount)
+	}
+
+	// Subsequent tasks should be marked with authentication failure or cancellation
+	for i := 1; i < len(tasks); i++ {
+		if results[i].Err == nil {
+			t.Errorf("task %d was expected to fail due to circuit breaker, but had no error", results[i].TaskID)
+		}
+		if !kernel.IsFatalAuth(results[i].Err) && !errors.Is(results[i].Err, context.Canceled) {
+			t.Errorf("task %d expected auth/canceled error, got %v", results[i].TaskID, results[i].Err)
+		}
+	}
+}
+
+

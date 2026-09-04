@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
+	"sync/atomic"
 
 	"godownloader/internal/logger"
 )
@@ -15,7 +17,29 @@ var (
 	ErrNoPluginFound = errors.New("no registered plugin can handle the provided URL")
 	// ErrNilPlugin is returned when attempting to register a nil plugin.
 	ErrNilPlugin = errors.New("cannot register a nil plugin")
+	// ErrAuthenticationFailed indicates invalid or expired credentials/session that aborts the batch.
+	ErrAuthenticationFailed = errors.New("authentication failed")
 )
+
+// FatalAuthError is an interface implemented by errors that represent unrecoverable auth failures.
+type FatalAuthError interface {
+	IsFatalAuth() bool
+}
+
+// IsFatalAuth checks if an error represents an unrecoverable authentication failure.
+func IsFatalAuth(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrAuthenticationFailed) {
+		return true
+	}
+	var fa FatalAuthError
+	if errors.As(err, &fa) && fa.IsFatalAuth() {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "authentication failed")
+}
 
 // Task represents an individual download unit dispatched by the kernel.
 type Task struct {
@@ -82,50 +106,60 @@ type DownloaderPlugin interface {
 	Download(ctx context.Context, task Task, progress ProgressFunc) (*Result, error)
 }
 
-// Global registry for plugins.
-var (
-	registryMu sync.RWMutex
-	plugins    []DownloaderPlugin
-)
+// Registry stores and manages available downloader plugins in an isolated, thread-safe instance.
+type Registry struct {
+	mu      sync.RWMutex
+	plugins []DownloaderPlugin
+}
 
-// Register adds a new plugin to the global static microkernel registry.
-// Typically invoked inside a plugin package's init() function.
-func Register(p DownloaderPlugin) {
+// NewRegistry creates an empty plugin Registry.
+func NewRegistry() *Registry {
+	return &Registry{}
+}
+
+// Register adds a new plugin to the registry instance.
+func (r *Registry) Register(p DownloaderPlugin) {
 	if p == nil {
 		panic(ErrNilPlugin)
 	}
 
-	registryMu.Lock()
-	defer registryMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	for _, existing := range plugins {
+	for _, existing := range r.plugins {
 		if existing.Name() == p.Name() {
 			return // Idempotent registration
 		}
 	}
-	plugins = append(plugins, p)
+	r.plugins = append(r.plugins, p)
 }
 
-// RegisteredPlugins returns a copy of all currently registered plugins in order of addition.
-func RegisteredPlugins() []DownloaderPlugin {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
+// Plugins returns a copy of all registered plugins in the registry.
+func (r *Registry) Plugins() []DownloaderPlugin {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	result := make([]DownloaderPlugin, len(plugins))
-	copy(result, plugins)
+	result := make([]DownloaderPlugin, len(r.plugins))
+	copy(result, r.plugins)
 	return result
 }
 
-// ResetRegistry clears the static registry. Primarily used in unit tests.
-func ResetRegistry() {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	plugins = nil
+// Resolve finds the first registered plugin that declares it can handle the given URL.
+func (r *Registry) Resolve(rawURL string) (DownloaderPlugin, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, p := range r.plugins {
+		if p.CanHandle(rawURL) {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("%w: %s", ErrNoPluginFound, rawURL)
 }
 
 // Kernel orchestrates URL dispatching and concurrency management across registered plugins.
 type Kernel struct {
-	plugins     []DownloaderPlugin
+	registry    *Registry
 	concurrency int
 	logger      *logger.Logger
 }
@@ -149,18 +183,31 @@ func WithConcurrency(limit int) Option {
 	}
 }
 
-// WithPlugins overrides the plugin set with a custom slice instead of the global registry.
-func WithPlugins(custom []DownloaderPlugin) Option {
+// WithRegistry sets a custom plugin Registry instance on the Kernel.
+func WithRegistry(r *Registry) Option {
 	return func(k *Kernel) {
-		k.plugins = make([]DownloaderPlugin, len(custom))
-		copy(k.plugins, custom)
+		if r != nil {
+			k.registry = r
+		}
 	}
 }
 
-// New creates an initialized Kernel instance using either configured options or the global registry.
+// WithPlugins registers the provided plugins into the Kernel's registry.
+func WithPlugins(custom []DownloaderPlugin) Option {
+	return func(k *Kernel) {
+		if k.registry == nil {
+			k.registry = NewRegistry()
+		}
+		for _, p := range custom {
+			k.registry.Register(p)
+		}
+	}
+}
+
+// New creates an initialized Kernel instance using either configured options or an empty registry.
 func New(opts ...Option) *Kernel {
 	k := &Kernel{
-		plugins:     RegisteredPlugins(),
+		registry:    NewRegistry(),
 		concurrency: 5, // Sensible default to prevent DDoS/throttling
 	}
 
@@ -173,53 +220,131 @@ func New(opts ...Option) *Kernel {
 
 // ResolvePlugin finds the first registered plugin that declares it can handle the given URL.
 func (k *Kernel) ResolvePlugin(rawURL string) (DownloaderPlugin, error) {
-	for _, p := range k.plugins {
-		if p.CanHandle(rawURL) {
-			return p, nil
-		}
+	if k.registry == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNoPluginFound, rawURL)
 	}
-	return nil, fmt.Errorf("%w: %s", ErrNoPluginFound, rawURL)
+	return k.registry.Resolve(rawURL)
 }
 
-// Dispatch executes the given list of tasks concurrently using goroutines and sync.WaitGroup,
-// constrained by the kernel's concurrency limit.
+type indexedTask struct {
+	idx  int
+	task Task
+}
+
+// Dispatch executes the given list of tasks concurrently using a bounded worker pool,
+// constrained by the kernel's concurrency limit. If any task encounters a fatal authentication
+// failure (IsFatalAuth), a circuit breaker triggers early batch cancellation.
 func (k *Kernel) Dispatch(ctx context.Context, tasks []Task, onEvent EventHandler) []Result {
 	results := make([]Result, len(tasks))
 	if len(tasks) == 0 {
 		return results
 	}
 
-	sem := make(chan struct{}, k.concurrency)
-	var wg sync.WaitGroup
-
-	for i, task := range tasks {
-		wg.Add(1)
-		go func(idx int, t Task) {
-			defer wg.Done()
-
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
-				results[idx] = Result{
-					TaskID: t.ID,
-					URL:    t.URL,
-					Err:    ctx.Err(),
-				}
-				emitEvent(onEvent, Event{
-					Type:   EventTaskFailed,
-					TaskID: t.ID,
-					URL:    t.URL,
-					Err:    ctx.Err(),
-				})
-				return
+	if err := ctx.Err(); err != nil {
+		for i, t := range tasks {
+			results[i] = Result{
+				TaskID: t.ID,
+				URL:    t.URL,
+				Err:    err,
 			}
+			emitEvent(onEvent, Event{
+				Type:   EventTaskFailed,
+				TaskID: t.ID,
+				URL:    t.URL,
+				Err:    err,
+			})
+		}
+		return results
+	}
 
-			results[idx] = k.executeTask(ctx, t, onEvent)
-		}(i, task)
+	dispatchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	tasksChan := make(chan indexedTask, len(tasks))
+	for i, t := range tasks {
+		tasksChan <- indexedTask{idx: i, task: t}
+	}
+	close(tasksChan)
+
+	concurrency := k.concurrency
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+	numWorkers := concurrency
+	if len(tasks) < numWorkers {
+		numWorkers = len(tasks)
+	}
+
+	var authFailed atomic.Bool
+	var fatalAuthErr error
+	var authErrMu sync.Mutex
+
+	var wg sync.WaitGroup
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-dispatchCtx.Done():
+					return
+				case item, ok := <-tasksChan:
+					if !ok {
+						return
+					}
+					if err := dispatchCtx.Err(); err != nil {
+						return
+					}
+
+					res := k.executeTask(dispatchCtx, item.task, onEvent)
+					results[item.idx] = res
+
+					if IsFatalAuth(res.Err) {
+						if authFailed.CompareAndSwap(false, true) {
+							authErrMu.Lock()
+							fatalAuthErr = res.Err
+							authErrMu.Unlock()
+
+							if k.logger != nil {
+								k.logger.Printf("Lote cancelado tempranamente por fallo de autenticación: %v", res.Err)
+							}
+							cancel()
+						}
+						return
+					}
+				}
+			}
+		}()
 	}
 
 	wg.Wait()
+
+	// Drain any remaining unexecuted tasks if context was cancelled
+	if dispatchCtx.Err() != nil {
+		authErrMu.Lock()
+		activeAuthErr := fatalAuthErr
+		authErrMu.Unlock()
+
+		drainErr := dispatchCtx.Err()
+		if activeAuthErr != nil {
+			drainErr = fmt.Errorf("%w: batch canceled early due to authentication failure", activeAuthErr)
+		}
+
+		for item := range tasksChan {
+			results[item.idx] = Result{
+				TaskID: item.task.ID,
+				URL:    item.task.URL,
+				Err:    drainErr,
+			}
+			emitEvent(onEvent, Event{
+				Type:   EventTaskFailed,
+				TaskID: item.task.ID,
+				URL:    item.task.URL,
+				Err:    drainErr,
+			})
+		}
+	}
+
 	return results
 }
 

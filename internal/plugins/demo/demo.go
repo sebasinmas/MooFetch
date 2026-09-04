@@ -273,6 +273,15 @@ func writeDummyPDF(targetPath, filename string) error {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return err
 	}
+	partPath := targetPath + ".godownload.part"
 	dummy := fmt.Sprintf("%%PDF-1.4\n%% GoDownloader Showcase Demo\n%% Resource: %s\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\nxref\n0 4\n0000000000 65535 f \n0000000010 00000 n \n0000000063 00000 n \n0000000122 00000 n \ntrailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n197\n%%%%EOF\n", filename)
-	return os.WriteFile(targetPath, []byte(dummy), 0o644)
+	if err := os.WriteFile(partPath, []byte(dummy), 0o644); err != nil {
+		_ = os.Remove(partPath)
+		return err
+	}
+	if err := os.Rename(partPath, targetPath); err != nil {
+		_ = os.Remove(partPath)
+		return err
+	}
+	return nil
 }

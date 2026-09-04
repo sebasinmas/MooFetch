@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"godownloader/internal/kernel"
 	"godownloader/internal/plugins/moodle"
@@ -212,8 +214,9 @@ func TestMoodle_ExtractFilename(t *testing.T) {
 }
 
 func TestMoodle_KernelIntegration(t *testing.T) {
-	// Verifies that the plugin registered itself via init()
-	k := kernel.New()
+	// Verifies that the plugin resolves properly when registered in the kernel
+	pInst := moodle.New()
+	k := kernel.New(kernel.WithPlugins([]kernel.DownloaderPlugin{pInst}))
 	p, err := k.ResolvePlugin("https://campusvirtual.ufro.cl/mod/resource/view.php?id=123")
 	if err != nil {
 		t.Fatalf("expected moodle plugin to resolve for URL: %v", err)
@@ -222,3 +225,153 @@ func TestMoodle_KernelIntegration(t *testing.T) {
 		t.Errorf("expected plugin name 'moodle', got '%s'", p.Name())
 	}
 }
+
+func TestMoodle_AtomicDownload_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(dummyPDF)))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(dummyPDF)
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	plugin := moodle.New()
+	task := kernel.Task{
+		ID:        1,
+		URL:       server.URL + "/doc.pdf",
+		OutputDir: tempDir,
+	}
+
+	res, err := plugin.Download(context.Background(), task, nil)
+	if err != nil {
+		t.Fatalf("download failed: %v", err)
+	}
+
+	finalPath := filepath.Join(tempDir, res.Filename)
+	partPath := finalPath + ".godownload.part"
+
+	if _, err := os.Stat(finalPath); err != nil {
+		t.Fatalf("final file was not created: %v", err)
+	}
+	if _, err := os.Stat(partPath); !os.IsNotExist(err) {
+		t.Errorf("expected .part file to be removed, but it exists")
+	}
+}
+
+func TestMoodle_AtomicDownload_FailureCleansPart(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Content-Length", "10000") // promise 10KB
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("incomplete bytes")) // only send 16 bytes
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	plugin := moodle.New()
+	task := kernel.Task{
+		ID:        2,
+		URL:       server.URL + "/corrupt.pdf",
+		OutputDir: tempDir,
+	}
+
+	_, err := plugin.Download(context.Background(), task, nil)
+	if err == nil {
+		t.Fatalf("expected error due to incomplete download, got nil")
+	}
+
+	finalPath := filepath.Join(tempDir, "corrupt.pdf")
+	partPath := finalPath + ".godownload.part"
+
+	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
+		t.Errorf("expected final file to NOT exist on error, but it was found")
+	}
+	if _, err := os.Stat(partPath); !os.IsNotExist(err) {
+		t.Errorf("expected .part file to be cleaned up on error, but it was found")
+	}
+}
+
+func TestMoodle_ContinuousStreamSucceeds(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		chunk := []byte("%PDF-1.4 header chunk\n")
+		totalSize := int64(len(chunk) * 5)
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", totalSize))
+		w.WriteHeader(http.StatusOK)
+
+		for i := 0; i < 5; i++ {
+			_, _ = w.Write(chunk)
+			if f, ok := w.(http.Flusher); ok {
+				f.Flush()
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	plugin := moodle.New(moodle.WithInactivityTimeout(200 * time.Millisecond))
+
+	task := kernel.Task{
+		ID:        3,
+		URL:       server.URL + "/stream.pdf",
+		OutputDir: tempDir,
+	}
+
+	res, err := plugin.Download(context.Background(), task, nil)
+	if err != nil {
+		t.Fatalf("expected continuous stream to succeed, got error: %v", err)
+	}
+
+	finalPath := filepath.Join(tempDir, res.Filename)
+	if _, err := os.Stat(finalPath); err != nil {
+		t.Errorf("expected file %s to exist, stat failed: %v", finalPath, err)
+	}
+}
+
+func TestMoodle_InactivityTimeoutStalled(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Content-Length", "1000")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("initial chunk"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		// Stall indefinitely until client disconnects
+		time.Sleep(500 * time.Millisecond)
+	}))
+	defer server.Close()
+
+	tempDir := t.TempDir()
+	// Set strict inactivity timeout of 50ms
+	plugin := moodle.New(moodle.WithInactivityTimeout(50 * time.Millisecond))
+
+	task := kernel.Task{
+		ID:        4,
+		URL:       server.URL + "/stalled.pdf",
+		OutputDir: tempDir,
+	}
+
+	_, err := plugin.Download(context.Background(), task, nil)
+	if err == nil {
+		t.Fatalf("expected download to fail due to inactivity timeout, got nil")
+	}
+
+	if !errors.Is(err, moodle.ErrInactivityTimeout) {
+		t.Errorf("expected error to wrap ErrInactivityTimeout, got: %v", err)
+	}
+
+	finalPath := filepath.Join(tempDir, "stalled.pdf")
+	partPath := finalPath + ".godownload.part"
+
+	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
+		t.Errorf("expected target file to NOT exist, but it was found")
+	}
+	if _, err := os.Stat(partPath); !os.IsNotExist(err) {
+		t.Errorf("expected part file to be deleted, but it was found")
+	}
+}
+
+
