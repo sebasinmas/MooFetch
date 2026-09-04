@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 	"godownloader/internal/plugins/moodle"
 )
@@ -53,7 +54,7 @@ func TestDispatcher_CircuitBreaker_PromptScenario(t *testing.T) {
 		kernel.WithConcurrency(1), // Concurrency 1 ensures deterministic sequence: Task 1 -> Task 2 -> Breaker
 	)
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: server.URL + "/res1.pdf", OutputDir: tempDir},
 		{ID: 2, URL: server.URL + "/res2.pdf", OutputDir: tempDir},
 		{ID: 3, URL: server.URL + "/res3.pdf", OutputDir: tempDir},
@@ -77,7 +78,7 @@ func TestDispatcher_CircuitBreaker_PromptScenario(t *testing.T) {
 	}
 
 	// Task 2 failed with fatal auth
-	if !kernel.IsFatalAuth(results[1].Err) {
+	if !domain.IsFatalAuth(results[1].Err) {
 		t.Errorf("task 2 expected IsFatalAuth to be true, got: %v", results[1].Err)
 	}
 
@@ -86,7 +87,7 @@ func TestDispatcher_CircuitBreaker_PromptScenario(t *testing.T) {
 		if results[i].Err == nil {
 			t.Errorf("task %d was expected to be aborted by circuit breaker, but had no error", results[i].TaskID)
 		}
-		if !kernel.IsFatalAuth(results[i].Err) && !errors.Is(results[i].Err, context.Canceled) {
+		if !domain.IsFatalAuth(results[i].Err) && !errors.Is(results[i].Err, context.Canceled) {
 			t.Errorf("task %d expected fatal auth or cancellation drain error, got: %v", results[i].TaskID, results[i].Err)
 		}
 	}
@@ -167,7 +168,7 @@ func TestDispatcher_CircuitBreaker_HTTPStatusesTDT(t *testing.T) {
 				kernel.WithConcurrency(1),
 			)
 
-			tasks := []kernel.Task{
+			tasks := []domain.Task{
 				{ID: 1, URL: server.URL + "/item1.pdf", OutputDir: tempDir},
 				{ID: 2, URL: server.URL + "/item2.pdf", OutputDir: tempDir},
 				{ID: 3, URL: server.URL + "/item3.pdf", OutputDir: tempDir},
@@ -185,7 +186,7 @@ func TestDispatcher_CircuitBreaker_HTTPStatusesTDT(t *testing.T) {
 
 			if tc.expectCircuitBreaker {
 				// Task 1 was fatal auth error
-				if !kernel.IsFatalAuth(results[0].Err) {
+				if !domain.IsFatalAuth(results[0].Err) {
 					t.Errorf("expected fatal auth error on task 1, got %v", results[0].Err)
 				}
 				// Task 2 and 3 should have been aborted
@@ -221,7 +222,7 @@ type channelSyncPlugin struct {
 
 func (p *channelSyncPlugin) Name() string            { return p.name }
 func (p *channelSyncPlugin) CanHandle(_ string) bool { return true }
-func (p *channelSyncPlugin) Download(ctx context.Context, task kernel.Task, _ kernel.ProgressFunc) (*kernel.Result, error) {
+func (p *channelSyncPlugin) Download(ctx context.Context, task domain.Task, _ domain.ProgressFunc) (*domain.Result, error) {
 	curr := atomic.AddInt64(&p.activeWorkers, 1)
 
 	// Update peak concurrency atomically
@@ -244,7 +245,7 @@ func (p *channelSyncPlugin) Download(ctx context.Context, task kernel.Task, _ ke
 	}
 
 	atomic.AddInt64(&p.activeWorkers, -1)
-	return &kernel.Result{
+	return &domain.Result{
 		TaskID:   task.ID,
 		URL:      task.URL,
 		Filename: fmt.Sprintf("task_%d.pdf", task.ID),
@@ -270,12 +271,12 @@ func TestDispatcher_BoundedWorkers_DeterministicChannels(t *testing.T) {
 		kernel.WithConcurrency(maxWorkers),
 	)
 
-	tasks := make([]kernel.Task, totalTasks)
+	tasks := make([]domain.Task, totalTasks)
 	for i := 0; i < totalTasks; i++ {
-		tasks[i] = kernel.Task{ID: i + 1, URL: fmt.Sprintf("https://test.local/task/%d", i+1)}
+		tasks[i] = domain.Task{ID: i + 1, URL: fmt.Sprintf("https://test.local/task/%d", i+1)}
 	}
 
-	var results []kernel.Result
+	var results []domain.Result
 	var wg sync.WaitGroup
 	wg.Add(1)
 
@@ -388,7 +389,7 @@ func TestDispatcher_GracefulShutdown_CleansPartFile(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        1,
 		URL:       server.URL + "/document_sigterm.pdf",
 		OutputDir: tempDir,
@@ -400,8 +401,8 @@ func TestDispatcher_GracefulShutdown_CleansPartFile(t *testing.T) {
 	var cancelInvoked atomic.Bool
 
 	// progress handler detects when client has actively written bytes to disk
-	onEvent := func(ev kernel.Event) {
-		if ev.Type == kernel.EventTaskProgress && ev.Bytes > 0 {
+	onEvent := func(ev domain.Event) {
+		if ev.Type == domain.EventTaskProgress && ev.Bytes > 0 {
 			if cancelInvoked.CompareAndSwap(false, true) {
 				// Verify .part file DOES exist on disk mid-download
 				if _, err := os.Stat(partPath); err != nil {
@@ -414,7 +415,7 @@ func TestDispatcher_GracefulShutdown_CleansPartFile(t *testing.T) {
 		}
 	}
 
-	results := k.Dispatch(ctx, []kernel.Task{task}, onEvent)
+	results := k.Dispatch(ctx, []domain.Task{task}, onEvent)
 
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result, got %d", len(results))
@@ -490,9 +491,9 @@ func TestDispatcher_GracefulShutdown_ConcurrentMultipleWorkersCleansPartFiles(t 
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	tasks := make([]kernel.Task, workers)
+	tasks := make([]domain.Task, workers)
 	for i := 0; i < workers; i++ {
-		tasks[i] = kernel.Task{
+		tasks[i] = domain.Task{
 			ID:        i + 1,
 			URL:       fmt.Sprintf("%s/concurrent_%d.pdf", server.URL, i+1),
 			OutputDir: tempDir,
@@ -500,8 +501,8 @@ func TestDispatcher_GracefulShutdown_ConcurrentMultipleWorkersCleansPartFiles(t 
 	}
 
 	var cancelCalled atomic.Bool
-	onEvent := func(ev kernel.Event) {
-		if ev.Type == kernel.EventTaskProgress {
+	onEvent := func(ev domain.Event) {
+		if ev.Type == domain.EventTaskProgress {
 			count := atomic.AddInt64(&progressCount, 1)
 			if count >= int64(workers) {
 				if cancelCalled.CompareAndSwap(false, true) {

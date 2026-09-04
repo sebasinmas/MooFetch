@@ -17,13 +17,13 @@ import (
 	"strings"
 	"time"
 
-	"godownloader/internal/kernel"
+	"godownloader/internal/domain"
 	"godownloader/internal/logger"
 )
 
 var (
 	// ErrAuthenticationFailed indicates invalid or expired session cookie.
-	ErrAuthenticationFailed = fmt.Errorf("%w: invalid or expired session cookie", kernel.ErrAuthenticationFailed)
+	ErrAuthenticationFailed = fmt.Errorf("%w: invalid or expired session cookie", domain.ErrAuthenticationFailed)
 	// ErrUnexpectedStatus indicates non-2xx HTTP status.
 	ErrUnexpectedStatus = errors.New("unexpected HTTP response status")
 	// ErrInactivityTimeout indicates stream stalled without receiving data within the timeout window.
@@ -190,7 +190,7 @@ func (p *Plugin) CanHandle(rawURL string) bool {
 }
 
 // Download downloads the resource specified by task.URL using the given cookie.
-func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel.ProgressFunc) (*kernel.Result, error) {
+func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
 	ctx = context.WithValue(ctx, cookieContextKey, task.Cookie)
 	ctx = context.WithValue(ctx, taskIDContextKey, task.ID)
 
@@ -248,7 +248,7 @@ func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel
 		return nil, err
 	}
 
-	return &kernel.Result{
+	return &domain.Result{
 		TaskID:     task.ID,
 		URL:        task.URL,
 		Filename:   filename,
@@ -277,7 +277,7 @@ func checkResponseStatus(resp *http.Response) error {
 	return nil
 }
 
-func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, task kernel.Task, filename string, progress kernel.ProgressFunc) (int64, error) {
+func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, task domain.Task, filename string, progress domain.ProgressFunc) (int64, error) {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return 0, fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -307,7 +307,7 @@ func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, ta
 			}
 			downloaded += int64(n)
 			if progress != nil {
-				progress(kernel.ProgressUpdate{
+				progress(domain.ProgressUpdate{
 					TaskID:     task.ID,
 					URL:        task.URL,
 					Filename:   filename,

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 	"godownloader/internal/tui"
 )
@@ -22,12 +23,12 @@ func (m *mockPlugin) Name() string { return "mock" }
 func (m *mockPlugin) CanHandle(rawURL string) bool {
 	return m.canHandle
 }
-func (m *mockPlugin) Download(ctx context.Context, task kernel.Task, emitProgress kernel.ProgressFunc) (*kernel.Result, error) {
+func (m *mockPlugin) Download(ctx context.Context, task domain.Task, emitProgress domain.ProgressFunc) (*domain.Result, error) {
 	if m.dlErr != nil {
 		return nil, m.dlErr
 	}
 	if emitProgress != nil {
-		emitProgress(kernel.ProgressUpdate{
+		emitProgress(domain.ProgressUpdate{
 			TaskID:     task.ID,
 			URL:        task.URL,
 			Filename:   m.filename,
@@ -35,7 +36,7 @@ func (m *mockPlugin) Download(ctx context.Context, task kernel.Task, emitProgres
 			TotalBytes: m.bytes,
 		})
 	}
-	return &kernel.Result{
+	return &domain.Result{
 		TaskID:     task.ID,
 		URL:        task.URL,
 		Filename:   m.filename,
@@ -58,7 +59,7 @@ func TestRunHeadlessProgress(t *testing.T) {
 		kernel.WithPlugins([]kernel.DownloaderPlugin{plugin}),
 	)
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://example.com/file1.pdf"},
 		{ID: 2, URL: "https://example.com/file2.pdf"},
 	}
@@ -98,7 +99,7 @@ func TestRunHeadlessProgress_WithFailure(t *testing.T) {
 		kernel.WithPlugins([]kernel.DownloaderPlugin{plugin}),
 	)
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://example.com/broken.pdf"},
 	}
 

@@ -1,5 +1,5 @@
-// Package ui provides modern, aesthetically rich terminal user interface components.
-package ui
+// Package tui provides modern, aesthetically rich terminal user interface components.
+package tui
 
 import (
 	"fmt"

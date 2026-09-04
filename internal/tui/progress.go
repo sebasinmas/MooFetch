@@ -13,15 +13,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 )
-
-// InitColorProfile sets Lipgloss color profile to Ascii if NO_COLOR is defined.
-func InitColorProfile() {
-	if os.Getenv("NO_COLOR") != "" {
-		lipgloss.SetColorProfile(termenv.Ascii)
-	}
-}
 
 // Styling definitions with Lip Gloss and AdaptiveColor for light and dark backgrounds
 var (
@@ -79,15 +73,15 @@ type itemState struct {
 	taskID   int
 	url      string
 	filename string
-	status   kernel.EventType
+	status   domain.EventType
 	bytes    int64
 	total    int64
 	err      error
 }
 
-type kernelEventMsg kernel.Event
+type kernelEventMsg domain.Event
 type allDoneMsg struct {
-	results []kernel.Result
+	results []domain.Result
 }
 
 type progressModel struct {
@@ -96,18 +90,18 @@ type progressModel struct {
 	dispatcherWg  sync.WaitGroup
 	resultsMu     sync.Mutex
 	kernel        *kernel.Kernel
-	tasks         []kernel.Task
+	tasks         []domain.Task
 	items         []itemState
 	spinner       spinner.Model
 	startTime     time.Time
 	totalDuration time.Duration
 	done          bool
-	results       []kernel.Result
-	eventChan     chan kernel.Event
+	results       []domain.Result
+	eventChan     chan domain.Event
 	logFilePath   string
 }
 
-func newProgressModel(ctx context.Context, k *kernel.Kernel, tasks []kernel.Task, logFilePath string) *progressModel {
+func newProgressModel(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, logFilePath string) *progressModel {
 	InitColorProfile()
 
 	if ctx == nil {
@@ -125,7 +119,7 @@ func newProgressModel(ctx context.Context, k *kernel.Kernel, tasks []kernel.Task
 			taskID:   t.ID,
 			url:      t.URL,
 			filename: fmt.Sprintf("file_%d", t.ID),
-			status:   kernel.EventType(-1), // Initial pending state
+			status:   domain.EventType(-1), // Initial pending state
 		}
 	}
 
@@ -137,7 +131,7 @@ func newProgressModel(ctx context.Context, k *kernel.Kernel, tasks []kernel.Task
 		items:       items,
 		spinner:     s,
 		startTime:   time.Now(),
-		eventChan:   make(chan kernel.Event, 100),
+		eventChan:   make(chan domain.Event, 100),
 		logFilePath: logFilePath,
 	}
 }
@@ -167,7 +161,7 @@ func (m *progressModel) startDispatcher() tea.Cmd {
 	m.dispatcherWg.Add(1)
 	return func() tea.Msg {
 		defer m.dispatcherWg.Done()
-		results := m.kernel.Dispatch(m.ctx, m.tasks, func(ev kernel.Event) {
+		results := m.kernel.Dispatch(m.ctx, m.tasks, func(ev domain.Event) {
 			select {
 			case m.eventChan <- ev:
 			case <-m.ctx.Done():
@@ -216,7 +210,7 @@ func (m *progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case kernelEventMsg:
-		m.applyEvent(kernel.Event(msg))
+		m.applyEvent(domain.Event(msg))
 		return m, m.waitForEvents()
 
 	case allDoneMsg:
@@ -231,7 +225,7 @@ func (m *progressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *progressModel) applyEvent(ev kernel.Event) {
+func (m *progressModel) applyEvent(ev domain.Event) {
 	for i := range m.items {
 		if m.items[i].taskID == ev.TaskID {
 			m.items[i].status = ev.Type
@@ -268,13 +262,13 @@ func (m *progressModel) View() string {
 func (m *progressModel) renderItem(it itemState) string {
 	var statusBadge string
 	switch it.status {
-	case kernel.EventTaskCompleted:
+	case domain.EventTaskCompleted:
 		statusBadge = successBadge.Render("  ✓ COMPLETADO ")
-	case kernel.EventTaskFailed:
+	case domain.EventTaskFailed:
 		statusBadge = failedBadge.Render("  ✗ ERROR      ")
-	case kernel.EventTaskProgress:
+	case domain.EventTaskProgress:
 		statusBadge = downloadingBadge.Render(fmt.Sprintf("%s DESCARGANDO", m.spinner.View()))
-	case kernel.EventTaskStarted:
+	case domain.EventTaskStarted:
 		statusBadge = downloadingBadge.Render(fmt.Sprintf("%s INICIANDO  ", m.spinner.View()))
 	default:
 		statusBadge = pendingBadge.Render("  • PENDIENTE  ")
@@ -334,7 +328,7 @@ func (m *progressModel) renderCompletoBox() string {
 }
 
 // RunProgressUI starts the Bubble Tea parallel download progress interface.
-func RunProgressUI(ctx context.Context, k *kernel.Kernel, tasks []kernel.Task, logFilePath string) ([]kernel.Result, error) {
+func RunProgressUI(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, logFilePath string) ([]domain.Result, error) {
 	model := newProgressModel(ctx, k, tasks, logFilePath)
 	defer func() {
 		if model.cancel != nil {

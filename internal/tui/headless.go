@@ -7,6 +7,7 @@ import (
 	"os"
 	"sync"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 )
 
@@ -14,7 +15,7 @@ import (
 // plain-text progress notifications to the specified writer (or os.Stderr if nil).
 // It does not launch any Bubble Tea programs or TUI elements, making it suitable
 // for non-interactive shells, scripts, and Unix pipelines.
-func RunHeadlessProgress(ctx context.Context, k *kernel.Kernel, tasks []kernel.Task, out io.Writer) ([]kernel.Result, error) {
+func RunHeadlessProgress(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, out io.Writer) ([]domain.Result, error) {
 	if out == nil {
 		out = os.Stderr
 	}
@@ -27,16 +28,16 @@ func RunHeadlessProgress(ctx context.Context, k *kernel.Kernel, tasks []kernel.T
 	fmt.Fprintf(out, "🚀 Iniciando descarga de %d archivo(s)...\n", total)
 
 	var mu sync.Mutex
-	onEvent := func(ev kernel.Event) {
+	onEvent := func(ev domain.Event) {
 		mu.Lock()
 		defer mu.Unlock()
 
 		switch ev.Type {
-		case kernel.EventTaskStarted:
+		case domain.EventTaskStarted:
 			fmt.Fprintf(out, "[%d/%d] ▶ Descargando: %s\n", ev.TaskID, total, ev.URL)
-		case kernel.EventTaskCompleted:
+		case domain.EventTaskCompleted:
 			fmt.Fprintf(out, "[%d/%d] ✓ Completado: %s (%s)\n", ev.TaskID, total, ev.Filename, formatBytes(ev.Bytes))
-		case kernel.EventTaskFailed:
+		case domain.EventTaskFailed:
 			fmt.Fprintf(out, "[%d/%d] ✗ Error: %s (%v)\n", ev.TaskID, total, ev.URL, ev.Err)
 		}
 	}

@@ -8,8 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-
-	"godownloader/internal/ui"
 )
 
 var (
@@ -195,7 +193,7 @@ func NewInteractiveForm(isDemo ...bool) *FormController {
 // into the 2-step Huh form using Bubble Tea.
 func RunInteractiveForm(isDemo ...bool) (*FormData, error) {
 	ctrl := NewInteractiveForm(isDemo...)
-	splash := ui.NewSplash(ctrl.Form)
+	splash := NewSplash(ctrl.Form)
 
 	p := tea.NewProgram(splash)
 	if _, err := p.Run(); err != nil {

@@ -1,4 +1,4 @@
-package ui_test
+package tui_test
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 
-	"godownloader/internal/ui"
+	"godownloader/internal/tui"
 )
 
 type dummyModel struct {
@@ -32,7 +32,7 @@ func (d *dummyModel) View() string {
 
 func TestSplash_InitialState(t *testing.T) {
 	dummy := &dummyModel{}
-	splash := ui.NewSplash(dummy, ui.WithDuration(500*time.Millisecond))
+	splash := tui.NewSplash(dummy, tui.WithDuration(500*time.Millisecond))
 
 	if splash.Aborted() {
 		t.Errorf("expected aborted to be false initially")
@@ -55,7 +55,7 @@ func TestSplash_InitialState(t *testing.T) {
 
 func TestSplash_SkipOnKeypress(t *testing.T) {
 	dummy := &dummyModel{}
-	splash := ui.NewSplash(dummy)
+	splash := tui.NewSplash(dummy)
 
 	// Sending an Enter key message should trigger instant transition to dummy
 	nextModel, cmd := splash.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -70,10 +70,10 @@ func TestSplash_SkipOnKeypress(t *testing.T) {
 
 func TestSplash_AbortOnCtrlC(t *testing.T) {
 	dummy := &dummyModel{}
-	splash := ui.NewSplash(dummy)
+	splash := tui.NewSplash(dummy)
 
 	m, cmd := splash.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
-	sm, ok := m.(*ui.SplashModel)
+	sm, ok := m.(*tui.SplashModel)
 	if !ok {
 		t.Fatalf("expected SplashModel, got %T", m)
 	}
@@ -93,7 +93,7 @@ func TestSplash_ConfigureWithHuhForm(t *testing.T) {
 		),
 	)
 
-	splash := ui.NewSplash(form)
+	splash := tui.NewSplash(form)
 	if form.SubmitCmd == nil || form.CancelCmd == nil {
 		t.Errorf("expected form SubmitCmd and CancelCmd to be initialized for tea.Quit")
 	}
@@ -108,15 +108,15 @@ func TestSplash_CustomOptions(t *testing.T) {
 	dummy := &dummyModel{}
 	customBanner := "CUSTOM_BANNER_TEST"
 	customSub := "CUSTOM_SUBTITLE_TEST"
-	stages := []ui.SplashStage{
+	stages := []tui.SplashStage{
 		{Icon: "🚀", Message: "Custom stage 1"},
 	}
 
-	splash := ui.NewSplash(dummy,
-		ui.WithBanner(customBanner),
-		ui.WithSubtitle(customSub),
-		ui.WithStages(stages),
-		ui.WithDuration(100*time.Millisecond),
+	splash := tui.NewSplash(dummy,
+		tui.WithBanner(customBanner),
+		tui.WithSubtitle(customSub),
+		tui.WithStages(stages),
+		tui.WithDuration(100*time.Millisecond),
 	)
 
 	view := splash.View()
@@ -133,7 +133,7 @@ func TestSplash_CustomOptions(t *testing.T) {
 
 func TestSplash_WindowSize(t *testing.T) {
 	dummy := &dummyModel{}
-	splash := ui.NewSplash(dummy)
+	splash := tui.NewSplash(dummy)
 
 	m, cmd := splash.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	if cmd != nil {
@@ -150,10 +150,10 @@ func TestSplash_WindowSize(t *testing.T) {
 
 func TestSplash_NoColor(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
-	ui.InitColorProfile()
+	tui.InitColorProfile()
 
 	dummy := &dummyModel{}
-	splash := ui.NewSplash(dummy)
+	splash := tui.NewSplash(dummy)
 	view := splash.View()
 
 	if strings.Contains(view, "\x1b[38;") || strings.Contains(view, "\x1b[48;") {

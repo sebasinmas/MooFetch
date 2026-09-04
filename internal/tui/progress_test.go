@@ -9,11 +9,12 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 )
 
 func TestProgressModel_RenderVisual(t *testing.T) {
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://campusvirtual.ufro.cl/mod/resource/view.php?id=101/Clase_01.pdf"},
 		{ID: 2, URL: "https://campusvirtual.ufro.cl/mod/resource/view.php?id=102/Guia_02.pdf"},
 		{ID: 3, URL: "https://campusvirtual.ufro.cl/mod/resource/view.php?id=103/Lectura.pdf"},
@@ -22,7 +23,7 @@ func TestProgressModel_RenderVisual(t *testing.T) {
 	m := newProgressModel(context.Background(), nil, tasks, "")
 	m.done = true
 	m.totalDuration = 2340 * time.Millisecond
-	m.results = []kernel.Result{
+	m.results = []domain.Result{
 		{TaskID: 1, URL: tasks[0].URL, Filename: "Clase_01.pdf", BytesRead: 2450000, TotalBytes: 2450000},
 		{TaskID: 2, URL: tasks[1].URL, Filename: "Guia_02.pdf", BytesRead: 4890000, TotalBytes: 4890000},
 		{TaskID: 3, URL: tasks[2].URL, Filename: "Lectura.pdf", BytesRead: 1780000, TotalBytes: 1780000},
@@ -42,14 +43,14 @@ func TestProgressModel_RenderVisual(t *testing.T) {
 
 type blockingPlugin struct{}
 
-func (b *blockingPlugin) Name() string               { return "blocking" }
-func (b *blockingPlugin) CanHandle(_ string) bool    { return true }
-func (b *blockingPlugin) Download(ctx context.Context, task kernel.Task, _ kernel.ProgressFunc) (*kernel.Result, error) {
+func (b *blockingPlugin) Name() string            { return "blocking" }
+func (b *blockingPlugin) CanHandle(_ string) bool { return true }
+func (b *blockingPlugin) Download(ctx context.Context, task domain.Task, _ domain.ProgressFunc) (*domain.Result, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-time.After(2 * time.Second):
-		return &kernel.Result{TaskID: task.ID, URL: task.URL}, nil
+		return &domain.Result{TaskID: task.ID, URL: task.URL}, nil
 	}
 }
 
@@ -59,7 +60,7 @@ func TestProgress_CancellationAndGoroutineDrain(t *testing.T) {
 		kernel.WithPlugins([]kernel.DownloaderPlugin{&blockingPlugin{}}),
 	)
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "http://example.com/1"},
 		{ID: 2, URL: "http://example.com/2"},
 	}
@@ -106,7 +107,7 @@ func TestProgress_CancellationAndGoroutineDrain(t *testing.T) {
 
 func TestProgress_CtrlCKeyCancels(t *testing.T) {
 	m := newProgressModel(context.Background(), nil, nil, "")
-	
+
 	// Send Ctrl+C
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if cmd == nil {
@@ -126,14 +127,14 @@ func TestProgressModel_NoColor(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	InitColorProfile()
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://campusvirtual.ufro.cl/mod/resource/view.php?id=101/Clase_01.pdf"},
 	}
 
 	m := newProgressModel(context.Background(), nil, tasks, "")
 	m.done = true
 	m.totalDuration = 100 * time.Millisecond
-	m.results = []kernel.Result{
+	m.results = []domain.Result{
 		{TaskID: 1, URL: tasks[0].URL, Filename: "Clase_01.pdf", BytesRead: 1000, TotalBytes: 1000},
 	}
 
@@ -142,4 +143,3 @@ func TestProgressModel_NoColor(t *testing.T) {
 		t.Errorf("expected no ANSI color sequences when NO_COLOR=1, got: %q", out)
 	}
 }
-

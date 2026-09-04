@@ -8,12 +8,18 @@ import (
 	"testing"
 	"time"
 
-	"godownloader/internal/kernel"
+	"godownloader/internal/domain"
 	"godownloader/internal/plugins/demo"
 )
 
+type downloaderContract interface {
+	Name() string
+	CanHandle(rawURL string) bool
+	Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error)
+}
+
 func TestDemoPlugin_Interface(_ *testing.T) {
-	var _ kernel.DownloaderPlugin = demo.New()
+	var _ downloaderContract = demo.New()
 }
 
 func TestDemoPlugin_CanHandle(t *testing.T) {
@@ -79,7 +85,7 @@ func TestDemoPlugin_Download(t *testing.T) {
 		demo.WithWriteDummyFiles(true),
 	)
 
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        1,
 		URL:       "https://campusvirtual.ufro.cl/mod/resource/view.php?id=101/Syllabus_2026.pdf",
 		Cookie:    "demo_cookie",
@@ -87,7 +93,7 @@ func TestDemoPlugin_Download(t *testing.T) {
 	}
 
 	var progressUpdates int
-	res, err := p.Download(context.Background(), task, func(u kernel.ProgressUpdate) {
+	res, err := p.Download(context.Background(), task, func(u domain.ProgressUpdate) {
 		progressUpdates++
 		if u.Filename != "Syllabus_2026.pdf" {
 			t.Errorf("unexpected filename in update: %s", u.Filename)
@@ -122,7 +128,7 @@ func TestDemoPlugin_Cancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        2,
 		URL:       "https://campusvirtual.ufro.cl/mod/resource/view.php?id=102",
 		OutputDir: t.TempDir(),

@@ -5,10 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/logger"
 )
 
@@ -17,93 +17,37 @@ var (
 	ErrNoPluginFound = errors.New("no registered plugin can handle the provided URL")
 	// ErrNilPlugin is returned when attempting to register a nil plugin.
 	ErrNilPlugin = errors.New("cannot register a nil plugin")
-	// ErrAuthenticationFailed indicates invalid or expired credentials/session that aborts the batch.
-	ErrAuthenticationFailed = errors.New("authentication failed")
 )
 
-// FatalAuthError is an interface implemented by errors that represent unrecoverable auth failures.
-type FatalAuthError interface {
-	IsFatalAuth() bool
-}
-
-// IsFatalAuth checks if an error represents an unrecoverable authentication failure.
-func IsFatalAuth(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, ErrAuthenticationFailed) {
-		return true
-	}
-	var fa FatalAuthError
-	if errors.As(err, &fa) && fa.IsFatalAuth() {
-		return true
-	}
-	return strings.Contains(strings.ToLower(err.Error()), "authentication failed")
-}
-
-// Task represents an individual download unit dispatched by the kernel.
-type Task struct {
-	ID        int
-	URL       string
-	Cookie    string
-	OutputDir string
-}
-
-// Result captures the final status and outcome of a download task.
-type Result struct {
-	TaskID     int
-	URL        string
-	Filename   string
-	BytesRead  int64
-	TotalBytes int64
-	Err        error
-}
-
-// ProgressUpdate contains real-time stream information for a running task.
-type ProgressUpdate struct {
-	TaskID     int
-	URL        string
-	Filename   string
-	BytesRead  int64
-	TotalBytes int64
-}
-
-// ProgressFunc is a callback invoked during payload transfer.
-type ProgressFunc func(update ProgressUpdate)
-
-// EventType categorizes dispatcher event notifications.
-type EventType int
+// Re-export pure domain models, error helpers, and event types for compatibility.
+type (
+	Task           = domain.Task
+	Result         = domain.Result
+	ProgressUpdate = domain.ProgressUpdate
+	ProgressFunc   = domain.ProgressFunc
+	EventType      = domain.EventType
+	Event          = domain.Event
+	EventHandler   = domain.EventHandler
+	FatalAuthError = domain.FatalAuthError
+)
 
 const (
-	// EventTaskStarted indicates a task was picked up by an active worker.
-	EventTaskStarted EventType = iota
-	// EventTaskProgress indicates byte transfer progress for a task.
-	EventTaskProgress
-	// EventTaskCompleted indicates a task finished successfully.
-	EventTaskCompleted
-	// EventTaskFailed indicates a task terminated with an error.
-	EventTaskFailed
+	EventTaskStarted   = domain.EventTaskStarted
+	EventTaskProgress  = domain.EventTaskProgress
+	EventTaskCompleted = domain.EventTaskCompleted
+	EventTaskFailed    = domain.EventTaskFailed
 )
 
-// Event represents an atomic status transition sent to kernel observers.
-type Event struct {
-	Type     EventType
-	TaskID   int
-	URL      string
-	Filename string
-	Bytes    int64
-	Total    int64
-	Err      error
-}
+var (
+	ErrAuthenticationFailed = domain.ErrAuthenticationFailed
+	IsFatalAuth             = domain.IsFatalAuth
+)
 
-// EventHandler receives real-time download events from the kernel dispatcher.
-type EventHandler func(event Event)
-
-// DownloaderPlugin defines the microkernel contract that all domain download handlers must fulfill.
+// DownloaderPlugin defines the consumer contract required by the kernel for all download handlers.
 type DownloaderPlugin interface {
 	Name() string
 	CanHandle(rawURL string) bool
-	Download(ctx context.Context, task Task, progress ProgressFunc) (*Result, error)
+	Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error)
 }
 
 // Registry stores and manages available downloader plugins in an isolated, thread-safe instance.
@@ -228,27 +172,27 @@ func (k *Kernel) ResolvePlugin(rawURL string) (DownloaderPlugin, error) {
 
 type indexedTask struct {
 	idx  int
-	task Task
+	task domain.Task
 }
 
 // Dispatch executes the given list of tasks concurrently using a bounded worker pool,
 // constrained by the kernel's concurrency limit. If any task encounters a fatal authentication
-// failure (IsFatalAuth), a circuit breaker triggers early batch cancellation.
-func (k *Kernel) Dispatch(ctx context.Context, tasks []Task, onEvent EventHandler) []Result {
-	results := make([]Result, len(tasks))
+// failure (domain.IsFatalAuth), a circuit breaker triggers early batch cancellation.
+func (k *Kernel) Dispatch(ctx context.Context, tasks []domain.Task, onEvent domain.EventHandler) []domain.Result {
+	results := make([]domain.Result, len(tasks))
 	if len(tasks) == 0 {
 		return results
 	}
 
 	if err := ctx.Err(); err != nil {
 		for i, t := range tasks {
-			results[i] = Result{
+			results[i] = domain.Result{
 				TaskID: t.ID,
 				URL:    t.URL,
 				Err:    err,
 			}
-			emitEvent(onEvent, Event{
-				Type:   EventTaskFailed,
+			emitEvent(onEvent, domain.Event{
+				Type:   domain.EventTaskFailed,
 				TaskID: t.ID,
 				URL:    t.URL,
 				Err:    err,
@@ -299,7 +243,7 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []Task, onEvent EventHandle
 					res := k.executeTask(dispatchCtx, item.task, onEvent)
 					results[item.idx] = res
 
-					if IsFatalAuth(res.Err) {
+					if domain.IsFatalAuth(res.Err) {
 						if authFailed.CompareAndSwap(false, true) {
 							authErrMu.Lock()
 							fatalAuthErr = res.Err
@@ -331,13 +275,13 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []Task, onEvent EventHandle
 		}
 
 		for item := range tasksChan {
-			results[item.idx] = Result{
+			results[item.idx] = domain.Result{
 				TaskID: item.task.ID,
 				URL:    item.task.URL,
 				Err:    drainErr,
 			}
-			emitEvent(onEvent, Event{
-				Type:   EventTaskFailed,
+			emitEvent(onEvent, domain.Event{
+				Type:   domain.EventTaskFailed,
 				TaskID: item.task.ID,
 				URL:    item.task.URL,
 				Err:    drainErr,
@@ -348,13 +292,13 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []Task, onEvent EventHandle
 	return results
 }
 
-func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandler) Result {
+func (k *Kernel) executeTask(ctx context.Context, task domain.Task, onEvent domain.EventHandler) domain.Result {
 	if k.logger != nil {
 		k.logger.LogTaskStart(task.ID, task.URL)
 	}
 
-	emitEvent(onEvent, Event{
-		Type:   EventTaskStarted,
+	emitEvent(onEvent, domain.Event{
+		Type:   domain.EventTaskStarted,
 		TaskID: task.ID,
 		URL:    task.URL,
 	})
@@ -364,13 +308,13 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		if k.logger != nil {
 			k.logger.LogTaskError(task.ID, task.URL, err)
 		}
-		res := Result{
+		res := domain.Result{
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
 		}
-		emitEvent(onEvent, Event{
-			Type:   EventTaskFailed,
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
@@ -378,9 +322,9 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		return res
 	}
 
-	progressWrapper := func(u ProgressUpdate) {
-		emitEvent(onEvent, Event{
-			Type:     EventTaskProgress,
+	progressWrapper := func(u domain.ProgressUpdate) {
+		emitEvent(onEvent, domain.Event{
+			Type:     domain.EventTaskProgress,
 			TaskID:   u.TaskID,
 			URL:      u.URL,
 			Filename: u.Filename,
@@ -394,13 +338,13 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		if k.logger != nil {
 			k.logger.LogTaskError(task.ID, task.URL, err)
 		}
-		failureResult := Result{
+		failureResult := domain.Result{
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
 		}
-		emitEvent(onEvent, Event{
-			Type:   EventTaskFailed,
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
@@ -412,8 +356,8 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		k.logger.LogTaskSuccess(res.TaskID, res.Filename, res.BytesRead)
 	}
 
-	emitEvent(onEvent, Event{
-		Type:     EventTaskCompleted,
+	emitEvent(onEvent, domain.Event{
+		Type:     domain.EventTaskCompleted,
 		TaskID:   res.TaskID,
 		URL:      res.URL,
 		Filename: res.Filename,
@@ -423,7 +367,7 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 	return *res
 }
 
-func emitEvent(handler EventHandler, event Event) {
+func emitEvent(handler domain.EventHandler, event domain.Event) {
 	if handler != nil {
 		handler(event)
 	}

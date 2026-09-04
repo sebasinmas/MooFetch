@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"godownloader/internal/kernel"
+	"godownloader/internal/domain"
 	"godownloader/internal/logger"
 )
 
@@ -69,7 +69,7 @@ func (p *Plugin) CanHandle(_ string) bool {
 }
 
 // Download simulates a concurrent download with realistic progress ticks and optional dummy file creation.
-func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel.ProgressFunc) (*kernel.Result, error) {
+func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
 	filename := ExtractPDFResource(task.URL, task.ID)
 	totalBytes := calculateSimulatedSize(task.ID, filename)
 
@@ -105,7 +105,7 @@ func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel
 		}
 
 		if progress != nil {
-			progress(kernel.ProgressUpdate{
+			progress(domain.ProgressUpdate{
 				TaskID:     task.ID,
 				URL:        task.URL,
 				Filename:   filename,
@@ -128,7 +128,7 @@ func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel
 		p.logger.Printf("[DEMO] Simulación completada con éxito para tarea %d: %s", task.ID, filename)
 	}
 
-	return &kernel.Result{
+	return &domain.Result{
 		TaskID:     task.ID,
 		URL:        task.URL,
 		Filename:   filename,

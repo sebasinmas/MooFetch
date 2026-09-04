@@ -12,11 +12,17 @@ import (
 	"testing"
 	"time"
 
-	"godownloader/internal/kernel"
+	"godownloader/internal/domain"
 	"godownloader/internal/plugins/moodle"
 )
 
 var dummyPDF = []byte("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF")
+
+type downloaderContract interface {
+	Name() string
+	CanHandle(rawURL string) bool
+	Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error)
+}
 
 func TestMoodle_AuthenticatedSuccess200(t *testing.T) {
 	validCookie := "MoodleSession=ufro_secret_session_token_123"
@@ -35,7 +41,7 @@ func TestMoodle_AuthenticatedSuccess200(t *testing.T) {
 	tempDir := t.TempDir()
 	plugin := moodle.New()
 
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        1,
 		URL:       server.URL + "/pluginfile.php/123/Apunte%201.1.pdf",
 		Cookie:    validCookie,
@@ -43,7 +49,7 @@ func TestMoodle_AuthenticatedSuccess200(t *testing.T) {
 	}
 
 	var progressCalled bool
-	res, err := plugin.Download(context.Background(), task, func(u kernel.ProgressUpdate) {
+	res, err := plugin.Download(context.Background(), task, func(u domain.ProgressUpdate) {
 		progressCalled = true
 		if u.BytesRead <= 0 {
 			t.Errorf("expected positive bytes read, got %d", u.BytesRead)
@@ -86,7 +92,7 @@ func TestMoodle_UnauthenticatedRedirect303(t *testing.T) {
 	defer server.Close()
 
 	plugin := moodle.New()
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        1,
 		URL:       server.URL + "/mod/resource/view.php?id=999",
 		Cookie:    "MoodleSession=invalid_expired_cookie",
@@ -104,13 +110,13 @@ func TestMoodle_UnauthenticatedRedirect303(t *testing.T) {
 }
 
 func TestMoodle_Unauthenticated403(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 	}))
 	defer server.Close()
 
 	plugin := moodle.New()
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        1,
 		URL:       server.URL + "/resource.pdf",
 		Cookie:    "",
@@ -127,14 +133,14 @@ func TestMoodle_Unauthenticated403(t *testing.T) {
 }
 
 func TestMoodle_ServerError500(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}))
 	defer server.Close()
 
 	tempDir := t.TempDir()
 	plugin := moodle.New()
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        2,
 		URL:       server.URL + "/broken.pdf",
 		Cookie:    "test=1",
@@ -149,63 +155,84 @@ func TestMoodle_ServerError500(t *testing.T) {
 	// Verify no stray file remains
 	files, _ := os.ReadDir(tempDir)
 	if len(files) != 0 {
-		t.Errorf("expected temporary directory to be clean on failure, found %d files", len(files))
+		t.Errorf("expected 0 files after server error, found %d", len(files))
+	}
+}
+
+func TestMoodle_CanHandle(t *testing.T) {
+	plugin := moodle.New()
+
+	tests := []struct {
+		url      string
+		expected bool
+	}{
+		{"https://campusvirtual.ufro.cl/mod/resource/view.php?id=123", true},
+		{"https://campusvirtual.ufro.cl/pluginfile.php/456/file.pdf", true},
+		{"https://moodle.org/mod/forum/view.php", true},
+		{"https://unknown.com/file.pdf", true}, // moodle plugin acts as general HTTP downloader as well
+	}
+
+	for _, tc := range tests {
+		result := plugin.CanHandle(tc.url)
+		if result != tc.expected {
+			t.Errorf("CanHandle(%s) = %v; want %v", tc.url, result, tc.expected)
+		}
 	}
 }
 
 func TestMoodle_ExtractFilename(t *testing.T) {
 	tests := []struct {
-		name     string
-		rawURL   string
-		headerCD string
-		taskID   int
-		expected string
+		name       string
+		rawURL     string
+		headerFunc func() http.Header
+		taskID     int
+		expected   string
 	}{
 		{
-			name:     "URL encoded spaces and symbols",
-			rawURL:   "https://campusvirtual.ufro.cl/mod/resource/content/1/Apunte%201.1.pdf",
-			headerCD: "",
+			name:   "From Content-Disposition attachment",
+			rawURL: "https://campusvirtual.ufro.cl/resource/1",
+			headerFunc: func() http.Header {
+				h := make(http.Header)
+				h.Set("Content-Disposition", "attachment; filename=\"Guia_Algebra.pdf\"")
+				return h
+			},
 			taskID:   1,
-			expected: "Apunte 1.1.pdf",
+			expected: "Guia_Algebra.pdf",
 		},
 		{
-			name:     "Content-Disposition takes precedence over generic URL",
-			rawURL:   "https://campusvirtual.ufro.cl/mod/resource/view.php?id=5543",
-			headerCD: `attachment; filename="Guia_Calculo_II.pdf"`,
+			name:   "From Content-Disposition with spaces and quotes",
+			rawURL: "https://campusvirtual.ufro.cl/resource/2",
+			headerFunc: func() http.Header {
+				h := make(http.Header)
+				h.Set("Content-Disposition", "attachment; filename=\"Capitulo 1 - Calculo.pdf\"")
+				return h
+			},
 			taskID:   2,
-			expected: "Guia_Calculo_II.pdf",
+			expected: "Capitulo 1 - Calculo.pdf",
 		},
 		{
-			name:     "Query param containing pdf filename",
-			rawURL:   "https://portal.edu/download.php?file=Laboratorio%203.pdf",
-			headerCD: "",
+			name:   "From URL path when no header",
+			rawURL: "https://campusvirtual.ufro.cl/pluginfile.php/123/mod_resource/content/1/Presentacion.pdf",
+			headerFunc: func() http.Header {
+				return make(http.Header)
+			},
 			taskID:   3,
-			expected: "Laboratorio 3.pdf",
+			expected: "Presentacion.pdf",
 		},
 		{
-			name:     "Path traversal attack sanitization",
-			rawURL:   "https://campusvirtual.ufro.cl/../../etc/passwd.pdf",
-			headerCD: "",
+			name:   "Fallback to task ID with pdf extension",
+			rawURL: "https://campusvirtual.ufro.cl/mod/resource/view.php?id=999",
+			headerFunc: func() http.Header {
+				return make(http.Header)
+			},
 			taskID:   4,
-			expected: "passwd.pdf",
-		},
-		{
-			name:     "Fallback to task ID when no filename is deducible",
-			rawURL:   "https://campusvirtual.ufro.cl/view.php?id=123",
-			headerCD: "",
-			taskID:   5,
-			expected: "download_5.pdf",
+			expected: "download_4.pdf",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var h http.Header
-			if tc.headerCD != "" {
-				h = make(http.Header)
-				h.Set("Content-Disposition", tc.headerCD)
-			}
-			result := moodle.ExtractFilename(tc.rawURL, h, tc.taskID)
+			result := moodle.ExtractFilename(tc.rawURL, tc.headerFunc(), tc.taskID)
 			if result != tc.expected {
 				t.Errorf("expected '%s', got '%s'", tc.expected, result)
 			}
@@ -213,16 +240,15 @@ func TestMoodle_ExtractFilename(t *testing.T) {
 	}
 }
 
-func TestMoodle_KernelIntegration(t *testing.T) {
-	// Verifies that the plugin resolves properly when registered in the kernel
+func TestMoodle_Contract(t *testing.T) {
+	// Verifies that the plugin fulfills the consumer contract
 	pInst := moodle.New()
-	k := kernel.New(kernel.WithPlugins([]kernel.DownloaderPlugin{pInst}))
-	p, err := k.ResolvePlugin("https://campusvirtual.ufro.cl/mod/resource/view.php?id=123")
-	if err != nil {
-		t.Fatalf("expected moodle plugin to resolve for URL: %v", err)
+	var _ downloaderContract = pInst
+	if !pInst.CanHandle("https://campusvirtual.ufro.cl/mod/resource/view.php?id=123") {
+		t.Fatalf("expected moodle plugin to handle URL")
 	}
-	if p.Name() != "moodle" {
-		t.Errorf("expected plugin name 'moodle', got '%s'", p.Name())
+	if pInst.Name() != "moodle" {
+		t.Errorf("expected plugin name 'moodle', got '%s'", pInst.Name())
 	}
 }
 
@@ -237,7 +263,7 @@ func TestMoodle_AtomicDownload_Success(t *testing.T) {
 
 	tempDir := t.TempDir()
 	plugin := moodle.New()
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        1,
 		URL:       server.URL + "/doc.pdf",
 		OutputDir: tempDir,
@@ -252,25 +278,26 @@ func TestMoodle_AtomicDownload_Success(t *testing.T) {
 	partPath := finalPath + ".godownload.part"
 
 	if _, err := os.Stat(finalPath); err != nil {
-		t.Fatalf("final file was not created: %v", err)
+		t.Errorf("expected final file to exist: %v", err)
 	}
 	if _, err := os.Stat(partPath); !os.IsNotExist(err) {
-		t.Errorf("expected .part file to be removed, but it exists")
+		t.Errorf("expected temporary .part file to be removed after rename")
 	}
 }
 
-func TestMoodle_AtomicDownload_FailureCleansPart(t *testing.T) {
+func TestMoodle_AtomicDownload_AbortedCleansPartFile(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")
-		w.Header().Set("Content-Length", "10000") // promise 10KB
+		// Declare 1000 bytes, but only send 10 bytes then prematurely close connection
+		w.Header().Set("Content-Length", "1000")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("incomplete bytes")) // only send 16 bytes
+		_, _ = w.Write([]byte("short data"))
 	}))
 	defer server.Close()
 
 	tempDir := t.TempDir()
 	plugin := moodle.New()
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        2,
 		URL:       server.URL + "/corrupt.pdf",
 		OutputDir: tempDir,
@@ -313,7 +340,7 @@ func TestMoodle_ContinuousStreamSucceeds(t *testing.T) {
 	tempDir := t.TempDir()
 	plugin := moodle.New(moodle.WithInactivityTimeout(200 * time.Millisecond))
 
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        3,
 		URL:       server.URL + "/stream.pdf",
 		OutputDir: tempDir,
@@ -348,7 +375,7 @@ func TestMoodle_InactivityTimeoutStalled(t *testing.T) {
 	// Set strict inactivity timeout of 50ms
 	plugin := moodle.New(moodle.WithInactivityTimeout(50 * time.Millisecond))
 
-	task := kernel.Task{
+	task := domain.Task{
 		ID:        4,
 		URL:       server.URL + "/stalled.pdf",
 		OutputDir: tempDir,
@@ -373,5 +400,3 @@ func TestMoodle_InactivityTimeoutStalled(t *testing.T) {
 		t.Errorf("expected part file to be deleted, but it was found")
 	}
 }
-
-

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 )
 
@@ -27,7 +28,7 @@ func (m *mockPlugin) CanHandle(rawURL string) bool {
 	return strings.HasPrefix(rawURL, m.prefix)
 }
 
-func (m *mockPlugin) Download(ctx context.Context, task kernel.Task, progress kernel.ProgressFunc) (*kernel.Result, error) {
+func (m *mockPlugin) Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
 	atomic.AddInt64(&m.callCount, 1)
 
 	if m.delay > 0 {
@@ -39,7 +40,7 @@ func (m *mockPlugin) Download(ctx context.Context, task kernel.Task, progress ke
 	}
 
 	if progress != nil {
-		progress(kernel.ProgressUpdate{
+		progress(domain.ProgressUpdate{
 			TaskID:     task.ID,
 			URL:        task.URL,
 			Filename:   "mock.pdf",
@@ -52,7 +53,7 @@ func (m *mockPlugin) Download(ctx context.Context, task kernel.Task, progress ke
 		return nil, m.failWith
 	}
 
-	return &kernel.Result{
+	return &domain.Result{
 		TaskID:     task.ID,
 		URL:        task.URL,
 		Filename:   "mock.pdf",
@@ -129,19 +130,19 @@ func TestKernel_Dispatch_SuccessAndEvents(t *testing.T) {
 		kernel.WithConcurrency(2),
 	)
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://test.com/file1.pdf"},
 		{ID: 2, URL: "https://test.com/file2.pdf"},
 	}
 
 	var startedCount, completedCount, progressCount int64
-	handler := func(ev kernel.Event) {
+	handler := func(ev domain.Event) {
 		switch ev.Type {
-		case kernel.EventTaskStarted:
+		case domain.EventTaskStarted:
 			atomic.AddInt64(&startedCount, 1)
-		case kernel.EventTaskProgress:
+		case domain.EventTaskProgress:
 			atomic.AddInt64(&progressCount, 1)
-		case kernel.EventTaskCompleted:
+		case domain.EventTaskCompleted:
 			atomic.AddInt64(&completedCount, 1)
 		}
 	}
@@ -177,13 +178,13 @@ func TestKernel_Dispatch_TaskFailure(t *testing.T) {
 	p := &mockPlugin{name: "failing", prefix: "https://fail.com", failWith: expectedErr}
 	k := kernel.New(kernel.WithPlugins([]kernel.DownloaderPlugin{p}))
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://fail.com/res1"},
 	}
 
 	var failedCount int64
-	handler := func(ev kernel.Event) {
-		if ev.Type == kernel.EventTaskFailed {
+	handler := func(ev domain.Event) {
+		if ev.Type == domain.EventTaskFailed {
 			atomic.AddInt64(&failedCount, 1)
 		}
 	}
@@ -211,7 +212,7 @@ func TestKernel_Dispatch_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://slow.com/slow1"},
 	}
 
@@ -231,7 +232,7 @@ type concurrencyTrackingPlugin struct {
 
 func (c *concurrencyTrackingPlugin) Name() string            { return "tracker" }
 func (c *concurrencyTrackingPlugin) CanHandle(_ string) bool { return true }
-func (c *concurrencyTrackingPlugin) Download(ctx context.Context, task kernel.Task, _ kernel.ProgressFunc) (*kernel.Result, error) {
+func (c *concurrencyTrackingPlugin) Download(ctx context.Context, task domain.Task, _ domain.ProgressFunc) (*domain.Result, error) {
 	if c.onStart != nil {
 		c.onStart()
 	}
@@ -241,7 +242,7 @@ func (c *concurrencyTrackingPlugin) Download(ctx context.Context, task kernel.Ta
 		}
 	}()
 	time.Sleep(2 * time.Millisecond)
-	return &kernel.Result{TaskID: task.ID, URL: task.URL, Filename: "file.pdf"}, nil
+	return &domain.Result{TaskID: task.ID, URL: task.URL, Filename: "file.pdf"}, nil
 }
 
 func TestKernel_Dispatch_BoundedWorkerPool(t *testing.T) {
@@ -272,9 +273,9 @@ func TestKernel_Dispatch_BoundedWorkerPool(t *testing.T) {
 		kernel.WithConcurrency(concurrency),
 	)
 
-	tasks := make([]kernel.Task, totalTasks)
+	tasks := make([]domain.Task, totalTasks)
 	for i := 0; i < totalTasks; i++ {
-		tasks[i] = kernel.Task{ID: i + 1, URL: "https://track.com/file"}
+		tasks[i] = domain.Task{ID: i + 1, URL: "https://track.com/file"}
 	}
 
 	results := k.Dispatch(context.Background(), tasks, nil)
@@ -307,9 +308,9 @@ func TestKernel_Dispatch_BatchContextExpiration(t *testing.T) {
 		kernel.WithConcurrency(2),
 	)
 
-	tasks := make([]kernel.Task, totalTasks)
+	tasks := make([]domain.Task, totalTasks)
 	for i := 0; i < totalTasks; i++ {
-		tasks[i] = kernel.Task{ID: i + 1, URL: "https://slow.com/file"}
+		tasks[i] = domain.Task{ID: i + 1, URL: "https://slow.com/file"}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
@@ -337,7 +338,7 @@ func TestKernel_Dispatch_CircuitBreakerAuth(t *testing.T) {
 	plugin := &mockPlugin{
 		name:     "moodle-mock",
 		prefix:   "https://moodle.test",
-		failWith: kernel.ErrAuthenticationFailed,
+		failWith: domain.ErrAuthenticationFailed,
 	}
 
 	k := kernel.New(
@@ -345,7 +346,7 @@ func TestKernel_Dispatch_CircuitBreakerAuth(t *testing.T) {
 		kernel.WithConcurrency(1), // Concurrency 1 ensures task 1 executes first
 	)
 
-	tasks := []kernel.Task{
+	tasks := []domain.Task{
 		{ID: 1, URL: "https://moodle.test/file1"},
 		{ID: 2, URL: "https://moodle.test/file2"},
 		{ID: 3, URL: "https://moodle.test/file3"},
@@ -359,7 +360,7 @@ func TestKernel_Dispatch_CircuitBreakerAuth(t *testing.T) {
 	}
 
 	// Task 1 failed with ErrAuthenticationFailed
-	if !errors.Is(results[0].Err, kernel.ErrAuthenticationFailed) {
+	if !errors.Is(results[0].Err, domain.ErrAuthenticationFailed) {
 		t.Fatalf("expected task 1 error to be ErrAuthenticationFailed, got: %v", results[0].Err)
 	}
 
@@ -373,10 +374,8 @@ func TestKernel_Dispatch_CircuitBreakerAuth(t *testing.T) {
 		if results[i].Err == nil {
 			t.Errorf("task %d was expected to fail due to circuit breaker, but had no error", results[i].TaskID)
 		}
-		if !kernel.IsFatalAuth(results[i].Err) && !errors.Is(results[i].Err, context.Canceled) {
+		if !domain.IsFatalAuth(results[i].Err) && !errors.Is(results[i].Err, context.Canceled) {
 			t.Errorf("task %d expected auth/canceled error, got %v", results[i].TaskID, results[i].Err)
 		}
 	}
 }
-
-

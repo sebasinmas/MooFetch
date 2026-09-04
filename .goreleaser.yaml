@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# ==============================================================================
+# GoReleaser v2 - Configuración de Release y Compilación Multiplataforma
+# Proyecto: GoDownloader
+# ==============================================================================
+version: 2
+
+project_name: godownloader
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: godownloader
+    # Entrypoint de la CLI (ajustar a ./cmd/downloader si aún no se ha completado la TASK-05)
+    main: ./cmd/godownloader
+    binary: godownloader
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+    # Inyección de metadatos en tiempo de compilación mediante LDFLAGS.
+    # Esta es la "Única Fuente de la Verdad", inyectando el Tag Git, Commit y Fecha.
+    ldflags:
+      - -s -w
+      # Inyección si el comando reside en package main
+      - -X main.Version={{ .Version }}
+      - -X main.Commit={{ .Commit }}
+      - -X main.BuildDate={{ .Date }}
+      # Inyección si se referencia el paquete canónico del módulo
+      - -X godownloader/cmd/godownloader.Version={{ .Version }}
+      - -X godownloader/cmd/godownloader.Commit={{ .Commit }}
+      - -X godownloader/cmd/godownloader.BuildDate={{ .Date }}
+      # Inyección bajo el namespace de repositorio remoto en GitHub
+      - -X github.com/sebasinmas/godownloader/cmd/godownloader.Version={{ .Version }}
+      - -X github.com/sebasinmas/godownloader/cmd/godownloader.Commit={{ .Commit }}
+      - -X github.com/sebasinmas/godownloader/cmd/godownloader.BuildDate={{ .Date }}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "🚀 Nuevas Características"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 100
+    - title: "🐛 Corrección de Errores"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 200
+    - title: "⚡ Rendimiento"
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 300
+    - title: "🔄 Refactorización & Arquitectura"
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 400
+    - title: "Otros Cambios"
+      order: 999
+
+release:
+  github:
+    owner: sebasinmas
+    name: GoDownloader
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Release {{ .Tag }} ({{ .Date }})
+    Distribución oficial de **GoDownloader**. Binarios precompilados disponibles a continuación.
