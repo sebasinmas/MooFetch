@@ -47,12 +47,7 @@ func DetermineExitCode(err error, ctx context.Context) int {
 		return ExitInterrupted
 	}
 
-	// 2. Direct Auth error
-	if kernel.IsFatalAuth(err) || errors.Is(err, moodle.ErrAuthenticationFailed) {
-		return ExitAuthErr
-	}
-
-	// 3. BatchError inspecting tasks
+	// 2. BatchError inspecting tasks
 	var batchErr *BatchError
 	if errors.As(err, &batchErr) {
 		hasAuthErr := false
@@ -76,6 +71,11 @@ func DetermineExitCode(err error, ctx context.Context) int {
 			return ExitAuthErr
 		}
 		return ExitGeneralErr
+	}
+
+	// 3. Direct Auth error
+	if kernel.IsFatalAuth(err) || errors.Is(err, moodle.ErrAuthenticationFailed) {
+		return ExitAuthErr
 	}
 
 	// 4. Usage error (unknown flags, missing required flags/arguments)

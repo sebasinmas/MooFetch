@@ -1,14 +1,16 @@
 <div align="center">
 
-# ⚡ [NOMBRE_POR_DEFINIR]
+# ⚡ GoDownloader (CampusFetch)
 
-**Descargas masivas, concurrentes y ultrarrápidas para Campus Virtual UFRO y cualquier intranet basada en Moodle.**
+**Descargas masivas, concurrentes y resilientes para Campus Virtual UFRO y plataformas Moodle.**  
+*De un script interactivo a un motor CLI de grado empresarial para pipelines Unix, extensiones y GUIs.*
 
-[![CI](https://github.com/sebasinmas/GoDownloader/actions/workflows/ci.yml/badge.svg)](https://github.com/sebasinmas/GoDownloader/actions)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
+[![Version](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/GoDownloader/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+[![POSIX Compliant](https://img.shields.io/badge/POSIX-Sysexits_Compliant-orange?style=for-the-badge&logo=linux)](https://pubs.opengroup.org/)
 
-[Características](#-características) • [Instalación](#-instalación) • [Guía de Uso](#-guía-de-uso) • [Arquitectura](#-arquitectura-para-devs) • [Roadmap](#-roadmap)
+[Características](#-características-principales) • [Instalación](#-instalación) • [Inicio Rápido](#-inicio-rápido) • [Uso en Pipelines](#-modo-headless-y-pipelines-unix) • [Códigos de Salida](#-códigos-de-salida-posix) • [Arquitectura](#-arquitectura-del-sistema) • [Privacidad](#-privacidad-y-seguridad-garantizada) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -16,154 +18,285 @@
 
 ## 💡 El Problema
 
-¿Alguna vez has tenido que bajar 30 diapositivas, guías y PDFs uno a uno al final del semestre desde el **Campus Virtual de la UFRO**? Las plataformas Moodle suelen implementar redirecciones de seguridad (`HTTP 303 See Other`) y protecciones de sesión que rompen aceleradores de descarga tradicionales como `wget` o `curl`.
+Al terminar el semestre en el **Campus Virtual de la Universidad de La Frontera (UFRO)** o cualquier intranet universitaria impulsada por **Moodle**, los estudiantes y docentes se enfrentan al tedio de descargar decenas de presentaciones, guías y documentos PDF uno por uno. 
 
-## 🚀 La Solución
+Las plataformas LMS implementan capas de autenticación con cookies temporales y redirecciones de seguridad (`HTTP 303 See Other` hacia `/login.php`). Estas protecciones rompen de inmediato a los gestores tradicionales como `wget` o `curl`, provocando descargas de archivos HTML corruptos de 2 KB en vez de los documentos deseados.
 
-**`[NOMBRE_POR_DEFINIR]`** es una herramienta de consola (CLI) moderna y de alto rendimiento escrita en Go.
+## 🚀 La Solución: GoDownloader v1.1.0
 
-Aunque nació diseñada y optimizada para la comunidad estudiantil de la **Universidad de La Frontera (UFRO)**, bajo el capó es un cliente agnóstico capaz de operar con **cualquier intranet universitaria que utilice Moodle**. Su motor inyecta directamente tu cookie activa (`MoodleSession`) en las cabeceras HTTP de peticiones concurrentes, resolviendo las redirecciones de seguridad y descargando todo el material de un semestre en segundos.
+**GoDownloader** es un motor de descargas concurrente y de alto rendimiento escrito en Go. 
+
+En su versión **v1.1.0**, el proyecto evoluciona de un simple asistente interactivo a una **herramienta CLI de grado industrial construida sobre Cobra**, diseñada para operar indistintamente en consolas interactivas o como núcleo de automatización (*headless engine*). Inyecta credenciales en memoria, sortea redirecciones HTTP 303, aísla fallos de sesión con un *Circuit Breaker* inteligente y garantiza la integridad de tu disco mediante escrituras atómicas.
 
 ---
 
-## ✨ Características
+## ✨ Características Principales
 
-- 🏎️ **Concurrencia Extrema en Go**: Descargas paralelas respaldadas por _goroutines_ y controladas por un semáforo de concurrencia que previene sobrecargas en los servidores de tu universidad.
-- 🔑 **Bypass de Sesión & Manejo de HTTP 303**: Inyección directa de cookies de sesión para resolver sin fricción las redirecciones de autenticación de Moodle.
-- 🎨 **Interfaz de Terminal Interactiva (TUI)**: Experiencia visual moderna y pulida con el ecosistema **Charmbracelet** (`huh`, `bubbletea`, `lipgloss`) con indicadores de progreso en tiempo real y métricas por archivo.
-- 🛡️ **Privacidad Absoluta**: Tus credenciales o cookies nunca se guardan en disco, no se registran en logs ni salen de tu máquina; residen estrictamente en la memoria volátil del proceso durante la ejecución.
-- 🧩 **Arquitectura Modular (Microkernel Estático)**: Núcleo extensible y de bajo acoplamiento pensado para integrar soporte a otros LMS (como Canvas o Blackboard) sin tocar el motor principal.
-- 🏷️ **Saneamiento Inteligente de Archivos**: Decodifica caracteres especiales (`%20` a espacios), respeta cabeceras `Content-Disposition` y protege contra ataques de _path-traversal_.
+- 🏎️ **Worker Pool Acotado y Concurrente:** Despacho paralelo mediante goroutines y canales acotados. Previene saturar tanto tu ancho de banda como los servidores institucionales.
+- 🛡️ **Escrituras Atómicas (`.part`)**: Cada archivo se descarga temporalmente con la extensión `.godownload.part`. Si la descarga se cancela o falla a mitad de camino, el residuo se elimina automáticamente, garantizando que nunca queden PDFs incompletos o corruptos en disco.
+- ⚡ **Circuit Breaker ante Expiración de Sesión:** Si tu cookie caduca o es rechazada (HTTP 401, 403 o redirección a login), el motor aborta el lote completo instantáneamente (*fail-fast*), evitando cientos de peticiones infructuosas.
+- 🤖 **Modo Dual: TUI Rica y Headless POSIX:**
+  - **Interactivo:** Asistente visual y barras de progreso reactivas desarrolladas con **Charmbracelet** (`bubbletea`, `huh`, `lipgloss`).
+  - **Headless:** Detección automática de tuberías (`cat urls.txt | godownloader run`) con salida de progreso dirigida a `stderr` para no contaminar tus flujos Unix.
+- 🔒 **Privacidad sin Fugas (Zero-Leak):** Las cookies solo existen en la memoria volátil del proceso. Los registros de depuración utilizan `log/slog` con ofuscación nativa (`slog.LogValuer`), ocultando cualquier token antes de tocar el disco.
+- ⏱️ **Transporte HTTP Resiliente:** Soporta descargas continuas de archivos pesados sin timeouts ciegos, incorporando un detector de inactividad de 30 segundos si el servidor se congela.
+- 🎨 **Compatibilidad con `NO_COLOR`:** Degrada elegantemente sus estilos ANSI en fondos claros o entornos donde se especifique la variable de estándar `NO_COLOR=1`.
 
 ---
 
 ## 📦 Instalación
 
 ### Opción 1: Binarios Precompilados (Recomendado)
-
-Descarga la versión más reciente para tu sistema operativo (Windows, Linux, macOS) desde la sección de [Releases](https://github.com/tu-usuario/nombre-repo/releases):
-
-1. Descomprime el archivo descargado.
-2. Ejecuta `[NOMBRE_POR_DEFINIR]` directamente desde tu terminal favorita.
-
-### Opción 2: Vía `go install`
-
-Si tienes el entorno de Go instalado (1.21 o superior):
+Descarga el ejecutable para tu plataforma (Linux, macOS o Windows) directamente desde la sección de [Releases](https://github.com/sebasinmas/GoDownloader/releases).
 
 ```bash
-go install github.com/tu-usuario/nombre-repo/cmd/downloader@latest
+# Ejemplo en Linux / macOS:
+tar -xzf godownloader_v1.1.0_linux_amd64.tar.gz
+sudo mv godownloader /usr/local/bin/
 ```
 
-### Opción 3: Compilar desde el código fuente
+### Opción 2: Compilación con Inyección de Versión (`ldflags`)
+Si dispones del toolchain de Go (1.21 o superior):
 
 ```bash
-# Clonar el repositorio
-git clone https://github.com/tu-usuario/nombre-repo.git
-cd nombre-repo
+# Clonar repositorio
+git clone https://github.com/sebasinmas/GoDownloader.git
+cd GoDownloader
 
-# Compilar binario (con inyección de versión opcional)
-go build -ldflags "-X main.Version=1.1.0 -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo dev) -X main.BuildDate=$(date +%Y-%m-%d)" -o bin/godownloader ./cmd/downloader
+# Compilar binario optimizado inyectando versión y commit
+go build -ldflags "-s -w \
+  -X main.Version=1.1.0 \
+  -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
+  -X main.BuildDate=$(date +%Y-%m-%d)" \
+  -o bin/godownloader ./cmd/downloader
 
-# Consultar versión
+# Verificar instalación
 ./bin/godownloader --version
+```
 
-# Ejecutar
-./bin/godownloader
+### Opción 3: Vía `go install`
+```bash
+go install github.com/sebasinmas/GoDownloader/cmd/downloader@latest
 ```
 
 ---
 
-## 📖 Guía de Uso
+## 📖 Inicio Rápido
 
-`[NOMBRE_POR_DEFINIR]` utiliza un asistente interactivo en terminal de 2 simples pasos:
+### 1. Obtener la Cookie de Sesión (10 Segundos)
 
-```text
-  PASO 1: Ingresa tu cookie de sesión
-  PASO 2: Pega la lista de enlaces
-  LISTO:  Descarga concurrente con barra de progreso
-```
-
-### Paso 1: Obtener tu cookie `MoodleSession` (¡Solo toma 10 segundos!)
-
-1. Abre tu navegador e inicia sesión en el **Campus Virtual UFRO** (o el Moodle de tu universidad).
-2. Presiona `F12` para abrir las **Herramientas de Desarrollador** y haz clic en la pestaña **Red** (_Network_).
-3. Recarga la página (`F5`), selecciona cualquier petición que aparezca en la lista y busca en la sección **Cabeceras de Solicitud** (_Request Headers_) la cabecera `Cookie`.
-4. Copia el valor que comienza por:
+1. Abre tu navegador e inicia sesión en el **Campus Virtual UFRO** (o tu intranet Moodle).
+2. Presiona `F12` para desplegar las **Herramientas de Desarrollador** y ve a la pestaña **Red** (*Network*).
+3. Recarga (`F5`), pulsa en cualquier recurso de la lista y localiza la cabecera `Cookie` en **Cabeceras de Solicitud** (*Request Headers*).
+4. Copia el valor de tu sesión, por ejemplo:
    ```text
    MoodleSession=tu_token_aqui_123456
    ```
-   _(También puedes encontrarlo directamente en la pestaña **Almacenamiento/Application** -> **Cookies**)._
+   *(También puedes extraerla desde la pestaña **Almacenamiento / Application** -> **Cookies**)*.
 
-### Paso 2: Ejecutar y Descargar
+---
 
-1. Inicia la aplicación en tu consola:
-   ```bash
-   [NOMBRE_POR_DEFINIR]
-   ```
-2. **Pega tu cookie** cuando el asistente interactivo te lo solicite.
-3. **Pega los enlaces** de los archivos/PDFs que necesitas (uno por línea; puedes copiar varios de una sola vez).
-4. Presiona `Esc` + `Enter` para confirmar y observa cómo se descargan en paralelo.
+### 2. Uso Interactivo (Clásico TUI)
 
-### Flags y Parámetros Opcionales
-
-Puedes personalizar el comportamiento del programa mediante banderas de línea de comandos:
+Ideal para el uso diario en terminales interactivas:
 
 ```bash
-# Definir una carpeta de destino personalizada
-[NOMBRE_POR_DEFINIR] -output ./mis_apuntes
+godownloader
+```
 
-# Ajustar el número de descargas simultáneas (por defecto: 5)
-[NOMBRE_POR_DEFINIR] -concurrency 8
+Un asistente visual te guiará en dos pasos:
+1. Pega tu cookie de sesión (`MoodleSession=...`).
+2. Pega la lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
+3. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
 
-# Activar modo de registro/depuración en archivo
-[NOMBRE_POR_DEFINIR] -logger debug.txt
+---
+
+## ⚙️ Modo Headless y Pipelines Unix
+
+GoDownloader v1.1.0 es un ciudadano de primera clase en el ecosistema POSIX. Detecta automáticamente si la entrada estándar (`stdin`) o la salida (`stdout`) están conectadas a una tubería, conmutando a modo headless de forma transparente.
+
+### Ejemplos en Tuberías (Pipes)
+
+```bash
+# Ingerir URLs directamente desde un archivo de texto con cookie por parámetro
+cat urls.txt | godownloader run -k "MoodleSession=abc123xyz" --headless
+
+# Usar variable de entorno para la cookie y definir salida personalizada
+export MOODLE_SESSION="MoodleSession=abc123xyz"
+cat urls.txt | godownloader run -o ./apuntes_semestre -c 8
+
+# Filtrar URLs con grep y descargar en paralelo con bandera --file
+grep "pdf" historial_campus.txt > urls_pdf.txt
+godownloader run -k "$MOODLE_SESSION" -f urls_pdf.txt --concurrency 6
+```
+
+> **Nota para Desarrolladores:** En modo headless, el registro de avance se transmite a **`stderr`** (`[1/10] ▶ Descargando...`), garantizando que **`stdout`** permanezca limpio para redirecciones de flujos o pipes hacia herramientas como `jq` o `awk`.
+
+---
+
+## 🚦 Códigos de Salida POSIX
+
+GoDownloader implementa códigos de retorno deterministas alineados con la especificación `sysexits.h` y las convenciones POSIX. Esto permite que scripts de bash, CI/CD, extensiones de navegador y aplicaciones de escritorio (Tauri/Wails) manejen el ciclo de vida de la ejecución con precisión:
+
+| Código | Constante Interna | Categoría | Descripción Técnica |
+| :---: | :--- | :--- | :--- |
+| **`0`** | `ExitSuccess` | Éxito | Todas las tareas de descarga finalizaron satisfactoriamente. |
+| **`1`** | `ExitGeneralErr` | Error General / Red | Fallo de conexión, timeout de socket no recuperable o error de I/O en disco durante el lote. |
+| **`2`** | `ExitUsageErr` | Error de Parámetros | Flags no reconocidos, argumentos requeridos faltantes o lista de URLs vacía. |
+| **`77`** | `ExitAuthErr` | Sesión Inválida (`EX_NOPERM`) | Cookie expirada, credenciales inválidas o redirección a login abortada por el Circuit Breaker. |
+| **`130`** | `ExitInterrupted` | Interrupción (`128 + SIGINT`) | Cancelación limpia provocada por el usuario (`Ctrl+C`), `SIGTERM` o anulación del formulario. |
+
+### Ejemplo de Integración en Scripts Shell
+
+```bash
+godownloader run -k "$MOODLE_SESSION" -f urls.txt --headless
+EXIT_CODE=$?
+
+case $EXIT_CODE in
+  0)
+    echo "✅ Todas las descargas concluyeron con éxito."
+    ;;
+  77)
+    echo "🔒 La sesión de Moodle expiró. Por favor renueva tu cookie."
+    exit 1
+    ;;
+  130)
+    echo "⚠️ Descarga abortada por el usuario. No quedaron archivos temporales."
+    ;;
+  *)
+    echo "❌ Error en la ejecución (Código $EXIT_CODE)."
+    ;;
+esac
 ```
 
 ---
 
-## 🏗️ Arquitectura para Devs
-
-El proyecto está diseñado bajo el patrón **Modular Monolith con Microkernel Estático**.
+## 🎛️ Referencia de Comandos y Banderas
 
 ```text
-[NOMBRE_POR_DEFINIR] (Kernel)
-       ├── Registry (Static init() registration)
-       ├── Concurrency Dispatcher (Goroutines + Semaphore)
-       └── Plugins Interface (DownloaderPlugin)
-                 ├── Moodle / UFRO Plugin (Incluido)
-                 └── [Futuro] Canvas / Blackboard Plugins
+Uso:
+  godownloader [flags]
+  godownloader [command]
+
+Comandos Disponibles:
+  run         Ejecuta descargas en modo directo sin asistente interactivo
+  version     Muestra la versión instalada, commit y fecha de compilación
+  help        Ayuda sobre cualquier comando
 ```
 
-- **Zero-Runtime Overhead**: Los plugins se autoregistran en memoria durante el tiempo de inicio (`init()`) implementando la interfaz `kernel.DownloaderPlugin`, sin requerir CGO ni librerías dinámicas (`.so`).
-- **Seguridad en Concurrencia**: Cobertura de pruebas unitarias al 100% evaluadas con detección de condiciones de carrera (`go test -race`).
+### Banderas Globales
+
+| Bandera | Shorthand | Valor por Defecto | Descripción |
+| :--- | :---: | :---: | :--- |
+| `--cookie` | `-k` | `""` | Cookie de sesión Moodle (o variable de entorno `MOODLE_SESSION`). |
+| `--concurrency` | `-c` | `5` | Límite máximo de descargas simultáneas en el worker pool. |
+| `--output` | `-o` | `"."` | Carpeta de destino para los archivos descargados. |
+| `--headless` | | `false` | Fuerza la ejecución en modo headless (progreso plano a `stderr`). |
+| `--log` | `-l` | `""` | Genera un archivo de diagnóstico estructurado con `log/slog`. |
+| `--demo` | `-d` | `false` | Modo simulación local para presentaciones y pruebas de carga. |
+| `--version` | `-v` | | Imprime la versión del binario. |
+
+### Banderas Específicas de `run`
+
+| Bandera | Shorthand | Descripción |
+| :--- | :---: | :--- |
+| `--urls` | `-u` | Lista de URLs separadas por coma. |
+| `--file` | `-f` | Ruta a un archivo de texto con URLs (una por línea). |
+
+### Variables de Entorno
+
+- `MOODLE_SESSION`: Inyecta la cookie de sesión por defecto si no se especifica `--cookie`.
+- `NO_COLOR`: Si está definida (cualquier valor), deshabilita completamente las secuencias de escape ANSI de color en TUI y logs.
+
+---
+
+## 🛡️ Privacidad y Seguridad Garantizada
+
+GoDownloader fue desarrollado siguiendo el principio de **Mínimo Privilegio y Cero Persistencia de Secretos**:
+
+- **Aislamiento en Memoria:** Tus credenciales de sesión (`MoodleSession`) residen exclusivamente en la memoria volátil del proceso durante el tiempo de ejecución.
+- **Sin Guardado en Disco:** El binario jamás guarda ni almacena tus cookies en archivos de configuración, base de datos local ni historial.
+- **Redacción Automática en Logs:** Al usar el flag `--log debug.txt`, el registrador estructurado (`log/slog`) aplica un formateador criptográfico (`SessionCookie`) que enmascara las cookies en tiempo real:
+  ```text
+  # Ejemplo de registro seguro generado:
+  time=2026-09-04T00:00:00 level=INFO msg="GoDownloader inicializado" cookie="MoodleSession=a1b***f9z (len: 32)"
+  ```
+- **Protección contra Path Traversal:** Los nombres de archivo recibidos mediante cabeceras HTTP `Content-Disposition` se sanean estrictamente, bloqueando caracteres ilegales o secuencias maliciosas (`../`).
+
+---
+
+## 🏗️ Arquitectura del Sistema
+
+GoDownloader está construido bajo el patrón **Microkernel Estático**:
+
+```text
+┌────────────────────────────────────────────────────────┐
+│               Cobra CLI / Entrypoint                   │
+│          (Detección TTY / Subcomandos / POSIX)         │
+└───────────┬────────────────────────────────┬───────────┘
+            │                                │
+            ▼ (TTY Interactivo)              ▼ (Headless / Pipe)
+   ┌───────────────────┐            ┌────────────────────┐
+   │  Charm TUI Engine │            │ Stream Observador  │
+   │  (Huh & Bubbletea)│            │    (a os.Stderr)   │
+   └────────┬──────────┘            └────────┬───────────┘
+            │                                │
+            └───────────────┬────────────────┘
+                            ▼
+ ┌───────────────────────────────────────────────────────┐
+ │               Kernel Orquestador                      │
+ │    - Pool Acotado de Goroutines (Semáforo Dinámico)   │
+ │    - Circuit Breaker de Autenticación                 │
+ │    - Manejador de Contextos y Señales (SIGINT/SIGTERM) │
+ └───────────┬───────────────────────────────┬───────────┘
+             │                               │
+             ▼                               ▼
+    ┌─────────────────┐             ┌─────────────────┐
+    │  Moodle Plugin  │             │  [Futuro] LMS   │
+    │ (Auth/HTTP 303) │             │ (Canvas/B-Board)│
+    └────────┬────────┘             └─────────────────┘
+             ▼
+    ┌─────────────────────────────────────────────────┐
+    │ Capa de Transporte Seguro & E/S Atómica         │
+    │  - Timeouts de Inactividad (Stream Watcher)     │
+    │  - Archivos Temporales (.godownload.part)       │
+    │  - Registro Estructurado con log/slog Ofuscado  │
+    └─────────────────────────────────────────────────┘
+```
+
+1. **Microkernel Desacoplado:** El registro de plugins se realiza por inyección de dependencias (`kernel.WithPlugins(...)`), eliminando funciones `init()` con efectos secundarios globales.
+2. **Worker Pool Bounded:** La concurrencia está estrictamente limitada por un semáforo de canales; no importa si procesas 5 o 5.000 URLs, nunca se crearán goroutines descontroladas.
+3. **Escrituras Atómicas:** Se garantiza la consistencia del sistema de archivos local frente a caídas de red o cortes de energía.
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] **Desarrollo de GUI (Interfaz Gráfica de Usuario) multiplataforma** _(Hito prioritario en desarrollo: soporte nativo para Windows, Linux y macOS)_.
-- [ ] Auto-detección opcional de sesión mediante integración con el navegador local.
-- [ ] Plugin oficial para plataformas **Canvas LMS** y **Blackboard**.
-- [ ] Detección y descarga automática de carpetas completas de cursos Moodle (`mod/folder`).
-- [ ] Empaquetado oficial en gestores de dependencias comunitarios (`brew`, `scoop`, `winget`, `aur`).
+- [x] **v1.1.0:** Migración a Cobra, soporte Headless, escrituras atómicas, Circuit Breaker y códigos POSIX.
+- [ ] **Extensión de Navegador (Chrome MV3):** Captura de enlaces y sesión con un solo clic desde el Campus Virtual.
+- [ ] **Aplicación de Escritorio Multiplataforma (Tauri / Wails):** GUI visual que interactúa con este binario como subproceso POSIX.
+- [ ] **Soporte para Carpetas Moodle (`mod/folder`):** Extracción recursiva de archivos comprimidos o directorios completos.
+- [ ] **Plugins para Plataformas Adicionales:** Módulos para Canvas LMS y Blackboard Learn.
+- [ ] **Distribución en Gestores de Paquetes:** Soporte oficial para `brew`, `scoop`, `winget` y AUR.
 
 ---
 
-## 🤝 Contribución
+## 🤝 Contribuciones
 
-¡Las contribuciones son bienvenidas! Ya sea reportando un bug, sugiriendo una mejora o añadiendo soporte para el sistema de tu universidad:
+¡Las contribuciones son bienvenidas! Si deseas reportar un fallo, proponer mejoras o adaptar GoDownloader a la plataforma de tu universidad:
 
-1. Haz un Fork del proyecto.
-2. Crea tu rama de características (`git checkout -b feature/mi-nueva-funcionalidad`).
-3. Asegúrate de pasar los tests y linters (`go test -race ./... && golangci-lint run`).
-4. Haz Commit de tus cambios (`git commit -m 'feat: soporte para nueva funcionalidad'`).
-5. Haz Push a la rama (`git push origin feature/mi-nueva-funcionalidad`).
-6. Abre un **Pull Request**.
+1. Haz un **Fork** del proyecto.
+2. Crea una rama para tu función (`git checkout -b feature/nueva-mejora`).
+3. Comprueba que todos los tests unitarios pasen y no existan condiciones de carrera:
+   ```bash
+   go test -v -race ./...
+   ```
+4. Envía un **Pull Request** detallando tus cambios.
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto está distribuido bajo la licencia **MIT**. Consulta el archivo `LICENSE` para más información.
+Distribuido bajo la Licencia **MIT**. Consulta el archivo `LICENSE` para más información.
 
-> **Aviso de Uso Responsable:** Esta herramienta está pensada para fines educativos y personales, facilitando el respaldo de material de estudio que el usuario ya tiene derecho legítimo a acceder. Por favor, respeta las políticas de uso y términos de servicio de tu institución académica.
+> **Aviso de Uso Responsable:** Esta herramienta fue creada para facilitar el respaldo de material de estudio que el usuario ya tiene permiso legítimo de acceder. Respeta las políticas de uso y normativas de los servicios tecnológicos de tu institución académica.
