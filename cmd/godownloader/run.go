@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"godownloader/internal/kernel"
+	"godownloader/internal/domain"
 	"godownloader/internal/tui"
 )
 
@@ -21,7 +21,7 @@ var runCmd = &cobra.Command{
 	Short: "Ejecuta descargas en modo directo sin asistente interactivo",
 	Long: `El subcomando run permite descargar lotes de recursos especificando
 las URLs y la cookie de sesión directamente mediante parámetros, archivos o tuberías Unix.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		var rawURLs []string
 
 		if flagRunURLs != "" {
@@ -93,7 +93,7 @@ las URLs y la cookie de sesión directamente mediante parámetros, archivos o tu
 
 		headless := shouldUseHeadless()
 
-		var results []kernel.Result
+		var results []domain.Result
 		var err error
 		if headless {
 			results, err = tui.RunHeadlessProgress(cmd.Context(), k, tasks, os.Stderr)

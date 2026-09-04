@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/muesli/termenv"
 
 	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
@@ -26,7 +24,7 @@ var (
 			Padding(0, 1).
 			MarginBottom(1)
 
-	cardBorder = lipgloss.NewStyle().
+	summaryCardBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
 			Padding(0, 2).
@@ -319,7 +317,7 @@ func (m *progressModel) renderSummary() string {
 
 	fmt.Fprintf(&sb, "\n  %s", dimStyle.Render("Presiona cualquier tecla para salir."))
 
-	return cardBorder.Render(sb.String()) + "\n"
+	return summaryCardBorder.Render(sb.String()) + "\n"
 }
 
 func (m *progressModel) renderCompletoBox() string {

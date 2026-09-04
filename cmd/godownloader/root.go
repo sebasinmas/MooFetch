@@ -10,7 +10,7 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-	"godownloader/internal/kernel"
+	"godownloader/internal/domain"
 	"godownloader/internal/tui"
 )
 
@@ -44,7 +44,7 @@ var rootCmd = &cobra.Command{
 	Long: `GoDownloader es una herramienta CLI de alto rendimiento diseñada para descargar
 masivamente y en paralelo archivos PDF y material educativo de plataformas Moodle y similares,
 inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma transparente.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		headless := shouldUseHeadless()
 
 		var formData *tui.FormData
@@ -104,7 +104,7 @@ inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma tran
 		tasks := createTasks(formData, flagOutputDir)
 		k := initKernel(flagConcurrency, appLogger, flagDemo)
 
-		var results []kernel.Result
+		var results []domain.Result
 		var err error
 		if headless {
 			results, err = tui.RunHeadlessProgress(cmd.Context(), k, tasks, os.Stderr)

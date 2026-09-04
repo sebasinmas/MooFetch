@@ -86,9 +86,9 @@ Se renombra el directorio `cmd/downloader` a **`cmd/godownloader`** para alinear
 
 ## 4. Estado de Implementación / Tareas Derivadas
 
-- [ ] Creación de `internal/domain` con las entidades base (`Task`, `Result`, `Event`, `ProgressUpdate`, `ErrAuthenticationFailed`).
-- [ ] Refactorización de `internal/kernel` para importar `domain` y declarar la interfaz consumidora `DownloaderPlugin`.
-- [ ] Actualización de adaptadores en `internal/plugins/moodle` e `internal/plugins/demo` para consumir `domain`.
-- [ ] Fusión de `internal/ui/splash.go` en `internal/tui/` y eliminación del directorio `internal/ui`.
-- [ ] Renombrado de `cmd/downloader` a `cmd/godownloader`.
-- [ ] Validación de compilación y pruebas de concurrencia libres de condiciones de carrera (`go test -race ./...`).
+- [x] Creación de `internal/domain` con las entidades base (`Task`, `Result`, `Event`, `ProgressUpdate`, `ErrAuthenticationFailed`).
+- [x] Refactorización de `internal/kernel` para importar `domain` y declarar la interfaz consumidora `DownloaderPlugin`.
+- [x] Actualización de adaptadores en `internal/plugins/moodle` e `internal/plugins/demo` para consumir `domain`.
+- [x] Fusión de `internal/ui/splash.go` en `internal/tui/` y eliminación del directorio `internal/ui`.
+- [x] Renombrado de `cmd/downloader` a `cmd/godownloader`.
+- [x] Validación de compilación y pruebas de concurrencia libres de condiciones de carrera (`go test -race ./...`).

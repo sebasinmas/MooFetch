@@ -25,7 +25,7 @@ func RunHeadlessProgress(ctx context.Context, k *kernel.Kernel, tasks []domain.T
 		return nil, nil
 	}
 
-	fmt.Fprintf(out, "🚀 Iniciando descarga de %d archivo(s)...\n", total)
+	_, _ = fmt.Fprintf(out, "🚀 Iniciando descarga de %d archivo(s)...\n", total)
 
 	var mu sync.Mutex
 	onEvent := func(ev domain.Event) {
@@ -34,11 +34,11 @@ func RunHeadlessProgress(ctx context.Context, k *kernel.Kernel, tasks []domain.T
 
 		switch ev.Type {
 		case domain.EventTaskStarted:
-			fmt.Fprintf(out, "[%d/%d] ▶ Descargando: %s\n", ev.TaskID, total, ev.URL)
+			_, _ = fmt.Fprintf(out, "[%d/%d] ▶ Descargando: %s\n", ev.TaskID, total, ev.URL)
 		case domain.EventTaskCompleted:
-			fmt.Fprintf(out, "[%d/%d] ✓ Completado: %s (%s)\n", ev.TaskID, total, ev.Filename, formatBytes(ev.Bytes))
+			_, _ = fmt.Fprintf(out, "[%d/%d] ✓ Completado: %s (%s)\n", ev.TaskID, total, ev.Filename, formatBytes(ev.Bytes))
 		case domain.EventTaskFailed:
-			fmt.Fprintf(out, "[%d/%d] ✗ Error: %s (%v)\n", ev.TaskID, total, ev.URL, ev.Err)
+			_, _ = fmt.Fprintf(out, "[%d/%d] ✗ Error: %s (%v)\n", ev.TaskID, total, ev.URL, ev.Err)
 		}
 	}
 
@@ -53,6 +53,6 @@ func RunHeadlessProgress(ctx context.Context, k *kernel.Kernel, tasks []domain.T
 		}
 	}
 
-	fmt.Fprintf(out, "🏁 Finalizado: %d completadas, %d fallidas (total: %d)\n", successCount, failureCount, total)
+	_, _ = fmt.Fprintf(out, "🏁 Finalizado: %d completadas, %d fallidas (total: %d)\n", successCount, failureCount, total)
 	return results, nil
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 	"godownloader/internal/plugins/demo"
 	"godownloader/internal/tui"
@@ -49,9 +50,9 @@ Custom_Apunte.pdf
 
 	var (
 		mu     sync.Mutex
-		events []kernel.Event
+		events []domain.Event
 	)
-	results := k.Dispatch(context.Background(), tasks, func(ev kernel.Event) {
+	results := k.Dispatch(context.Background(), tasks, func(ev domain.Event) {
 		mu.Lock()
 		events = append(events, ev)
 		mu.Unlock()

@@ -41,7 +41,7 @@ const defaultBanner = `  █▀▀ ▄▀█ █▀▄▀█ █▀█ █ █ �
 
 // Lip Gloss styles tailored with adaptive colors for both light and dark backgrounds
 var (
-	cardBorder = lipgloss.NewStyle().
+	splashCardBorder = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
 			Padding(1, 3).
@@ -305,7 +305,7 @@ func (m *SplashModel) View() string {
 		hintLine,
 	}, "\n")
 
-	renderedCard := cardBorder.Render(content)
+	renderedCard := splashCardBorder.Render(content)
 
 	// Responsive horizontal centering if terminal width is known
 	if m.width > 0 {

@@ -65,10 +65,10 @@ cd GoDownloader
 
 # Compilar binario optimizado inyectando versión y commit
 go build -ldflags "-s -w \
-  -X main.Version=1.1.0 \
+  -X main.Version=1.2.0 \
   -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
   -X main.BuildDate=$(date +%Y-%m-%d)" \
-  -o bin/godownloader ./cmd/downloader
+  -o bin/godownloader ./cmd/godownloader
 
 # Verificar instalación
 ./bin/godownloader --version
@@ -76,7 +76,7 @@ go build -ldflags "-s -w \
 
 ### Opción 3: Vía `go install`
 ```bash
-go install github.com/sebasinmas/GoDownloader/cmd/downloader@latest
+go install github.com/sebasinmas/GoDownloader/cmd/godownloader@latest
 ```
 
 ---

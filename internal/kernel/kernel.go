@@ -19,18 +19,31 @@ var (
 	ErrNilPlugin = errors.New("cannot register a nil plugin")
 )
 
-// Re-export pure domain models, error helpers, and event types for compatibility.
-type (
-	Task           = domain.Task
-	Result         = domain.Result
-	ProgressUpdate = domain.ProgressUpdate
-	ProgressFunc   = domain.ProgressFunc
-	EventType      = domain.EventType
-	Event          = domain.Event
-	EventHandler   = domain.EventHandler
-	FatalAuthError = domain.FatalAuthError
-)
+// Task re-exports domain.Task.
+type Task = domain.Task
 
+// Result re-exports domain.Result.
+type Result = domain.Result
+
+// ProgressUpdate re-exports domain.ProgressUpdate.
+type ProgressUpdate = domain.ProgressUpdate
+
+// ProgressFunc re-exports domain.ProgressFunc.
+type ProgressFunc = domain.ProgressFunc
+
+// EventType re-exports domain.EventType.
+type EventType = domain.EventType
+
+// Event re-exports domain.Event.
+type Event = domain.Event
+
+// EventHandler re-exports domain.EventHandler.
+type EventHandler = domain.EventHandler
+
+// FatalAuthError re-exports domain.FatalAuthError.
+type FatalAuthError = domain.FatalAuthError
+
+// Event constants re-exported from domain.
 const (
 	EventTaskStarted   = domain.EventTaskStarted
 	EventTaskProgress  = domain.EventTaskProgress
@@ -38,6 +51,7 @@ const (
 	EventTaskFailed    = domain.EventTaskFailed
 )
 
+// Sentinel auth error and detector function re-exported from domain.
 var (
 	ErrAuthenticationFailed = domain.ErrAuthenticationFailed
 	IsFatalAuth             = domain.IsFatalAuth
@@ -185,20 +199,7 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []domain.Task, onEvent doma
 	}
 
 	if err := ctx.Err(); err != nil {
-		for i, t := range tasks {
-			results[i] = domain.Result{
-				TaskID: t.ID,
-				URL:    t.URL,
-				Err:    err,
-			}
-			emitEvent(onEvent, domain.Event{
-				Type:   domain.EventTaskFailed,
-				TaskID: t.ID,
-				URL:    t.URL,
-				Err:    err,
-			})
-		}
-		return results
+		return handleImmediateCancellation(tasks, onEvent, err)
 	}
 
 	dispatchCtx, cancel := context.WithCancel(ctx)
@@ -210,11 +211,10 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []domain.Task, onEvent doma
 	}
 	close(tasksChan)
 
-	concurrency := k.concurrency
-	if concurrency <= 0 {
-		concurrency = 1
+	numWorkers := k.concurrency
+	if numWorkers <= 0 {
+		numWorkers = 1
 	}
-	numWorkers := concurrency
 	if len(tasks) < numWorkers {
 		numWorkers = len(tasks)
 	}
@@ -228,68 +228,104 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []domain.Task, onEvent doma
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for {
-				select {
-				case <-dispatchCtx.Done():
-					return
-				case item, ok := <-tasksChan:
-					if !ok {
-						return
-					}
-					if err := dispatchCtx.Err(); err != nil {
-						return
-					}
-
-					res := k.executeTask(dispatchCtx, item.task, onEvent)
-					results[item.idx] = res
-
-					if domain.IsFatalAuth(res.Err) {
-						if authFailed.CompareAndSwap(false, true) {
-							authErrMu.Lock()
-							fatalAuthErr = res.Err
-							authErrMu.Unlock()
-
-							if k.logger != nil {
-								k.logger.Printf("Lote cancelado tempranamente por fallo de autenticación: %v", res.Err)
-							}
-							cancel()
-						}
-						return
-					}
-				}
-			}
+			k.worker(dispatchCtx, tasksChan, results, onEvent, &authFailed, &fatalAuthErr, &authErrMu, cancel)
 		}()
 	}
 
 	wg.Wait()
 
-	// Drain any remaining unexecuted tasks if context was cancelled
 	if dispatchCtx.Err() != nil {
 		authErrMu.Lock()
 		activeAuthErr := fatalAuthErr
 		authErrMu.Unlock()
-
-		drainErr := dispatchCtx.Err()
-		if activeAuthErr != nil {
-			drainErr = fmt.Errorf("%w: batch canceled early due to authentication failure", activeAuthErr)
-		}
-
-		for item := range tasksChan {
-			results[item.idx] = domain.Result{
-				TaskID: item.task.ID,
-				URL:    item.task.URL,
-				Err:    drainErr,
-			}
-			emitEvent(onEvent, domain.Event{
-				Type:   domain.EventTaskFailed,
-				TaskID: item.task.ID,
-				URL:    item.task.URL,
-				Err:    drainErr,
-			})
-		}
+		drainRemainingTasks(tasksChan, results, onEvent, activeAuthErr, dispatchCtx.Err())
 	}
 
 	return results
+}
+
+func handleImmediateCancellation(tasks []domain.Task, onEvent domain.EventHandler, err error) []domain.Result {
+	results := make([]domain.Result, len(tasks))
+	for i, t := range tasks {
+		results[i] = domain.Result{
+			TaskID: t.ID,
+			URL:    t.URL,
+			Err:    err,
+		}
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
+			TaskID: t.ID,
+			URL:    t.URL,
+			Err:    err,
+		})
+	}
+	return results
+}
+
+func (k *Kernel) worker(
+	ctx context.Context,
+	tasksChan <-chan indexedTask,
+	results []domain.Result,
+	onEvent domain.EventHandler,
+	authFailed *atomic.Bool,
+	fatalAuthErr *error,
+	authErrMu *sync.Mutex,
+	cancel context.CancelFunc,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case item, ok := <-tasksChan:
+			if !ok || ctx.Err() != nil {
+				return
+			}
+
+			res := k.executeTask(ctx, item.task, onEvent)
+			results[item.idx] = res
+
+			if domain.IsFatalAuth(res.Err) {
+				if authFailed.CompareAndSwap(false, true) {
+					authErrMu.Lock()
+					*fatalAuthErr = res.Err
+					authErrMu.Unlock()
+
+					if k.logger != nil {
+						k.logger.Printf("Lote cancelado tempranamente por fallo de autenticación: %v", res.Err)
+					}
+					cancel()
+				}
+				return
+			}
+		}
+	}
+}
+
+func drainRemainingTasks(
+	tasksChan <-chan indexedTask,
+	results []domain.Result,
+	onEvent domain.EventHandler,
+	activeAuthErr error,
+	cancelErr error,
+) {
+	drainErr := cancelErr
+	if activeAuthErr != nil {
+		drainErr = fmt.Errorf("%w: batch canceled early due to authentication failure", activeAuthErr)
+	}
+
+	for item := range tasksChan {
+		results[item.idx] = domain.Result{
+			TaskID: item.task.ID,
+			URL:    item.task.URL,
+			Err:    drainErr,
+		}
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
+			TaskID: item.task.ID,
+			URL:    item.task.URL,
+			Err:    drainErr,
+		})
+	}
 }
 
 func (k *Kernel) executeTask(ctx context.Context, task domain.Task, onEvent domain.EventHandler) domain.Result {

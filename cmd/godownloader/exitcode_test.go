@@ -246,7 +246,7 @@ func TestDetermineExitCode_POSIXMappingTDT(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			code := DetermineExitCode(tc.err, tc.ctx)
+			code := DetermineExitCode(tc.ctx, tc.err)
 			if code != tc.expectedCode {
 				t.Errorf("DetermineExitCode(%v) = %d; expected POSIX code %d", tc.err, code, tc.expectedCode)
 			}
@@ -339,7 +339,7 @@ func TestDetermineExitCode_SimulatedEndToEnd_Parallel(t *testing.T) {
 	}
 
 	batchErr := &BatchError{Results: results}
-	code := DetermineExitCode(batchErr, context.Background())
+	code := DetermineExitCode(context.Background(), batchErr)
 	if code != ExitAuthErr {
 		t.Errorf("expected ExitAuthErr (%d), got %d", ExitAuthErr, code)
 	}
@@ -353,7 +353,7 @@ func TestDetermineExitCode_RealCancellationSimulation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // simulate Ctrl+C / SIGTERM
 
-	code := DetermineExitCode(context.Canceled, ctx)
+	code := DetermineExitCode(ctx, context.Canceled)
 	if code != ExitInterrupted {
 		t.Errorf("expected ExitInterrupted (%d), got %d", ExitInterrupted, code)
 	}
@@ -379,7 +379,7 @@ func TestExitCode_AuthFailureEndToEnd(t *testing.T) {
 		t.Fatalf("expected error for unauthenticated download, got nil")
 	}
 
-	exitCode := DetermineExitCode(err, context.Background())
+	exitCode := DetermineExitCode(context.Background(), err)
 	if exitCode != ExitAuthErr {
 		t.Errorf("expected exit code %d (ExitAuthErr), got %d (err: %v)", ExitAuthErr, exitCode, err)
 	}

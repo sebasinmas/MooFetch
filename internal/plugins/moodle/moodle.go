@@ -297,13 +297,45 @@ func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, ta
 		}
 	}()
 
+	downloaded, writeErr = copyStreamWithProgress(file, reader, totalBytes, task, filename, progress)
+	if writeErr != nil {
+		return downloaded, writeErr
+	}
+
+	if totalBytes > 0 && downloaded != totalBytes {
+		writeErr = fmt.Errorf("incomplete download: expected %d bytes, got %d", totalBytes, downloaded)
+		return downloaded, writeErr
+	}
+
+	if err := file.Close(); err != nil {
+		writeErr = fmt.Errorf("failed to close file: %w", err)
+		return downloaded, writeErr
+	}
+
+	if err := os.Rename(partPath, targetPath); err != nil {
+		writeErr = fmt.Errorf("failed to rename part file: %w", err)
+		return downloaded, writeErr
+	}
+
+	return downloaded, nil
+}
+
+func copyStreamWithProgress(
+	dst io.Writer,
+	src io.Reader,
+	totalBytes int64,
+	task domain.Task,
+	filename string,
+	progress domain.ProgressFunc,
+) (int64, error) {
 	buf := make([]byte, 32*1024)
+	var downloaded int64
+
 	for {
-		n, readErr := reader.Read(buf)
+		n, readErr := src.Read(buf)
 		if n > 0 {
-			if _, wErr := file.Write(buf[:n]); wErr != nil {
-				writeErr = fmt.Errorf("failed writing to file: %w", wErr)
-				return downloaded, writeErr
+			if _, wErr := dst.Write(buf[:n]); wErr != nil {
+				return downloaded, fmt.Errorf("failed writing to file: %w", wErr)
 			}
 			downloaded += int64(n)
 			if progress != nil {
@@ -320,24 +352,8 @@ func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, ta
 			if errors.Is(readErr, io.EOF) {
 				break
 			}
-			writeErr = fmt.Errorf("stream read error: %w", readErr)
-			return downloaded, writeErr
+			return downloaded, fmt.Errorf("stream read error: %w", readErr)
 		}
-	}
-
-	if totalBytes > 0 && downloaded != totalBytes {
-		writeErr = fmt.Errorf("incomplete download: expected %d bytes, got %d", totalBytes, downloaded)
-		return downloaded, writeErr
-	}
-
-	if err := file.Close(); err != nil {
-		writeErr = fmt.Errorf("failed to close file: %w", err)
-		return downloaded, writeErr
-	}
-
-	if err := os.Rename(partPath, targetPath); err != nil {
-		writeErr = fmt.Errorf("failed to rename part file: %w", err)
-		return downloaded, writeErr
 	}
 
 	return downloaded, nil

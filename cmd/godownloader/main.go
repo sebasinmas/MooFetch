@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"godownloader/internal/domain"
 	"godownloader/internal/kernel"
 	"godownloader/internal/logger"
 	"godownloader/internal/plugins/demo"
@@ -21,7 +22,7 @@ func main() {
 	defer stop()
 
 	if err := Execute(ctx); err != nil {
-		code := DetermineExitCode(err, ctx)
+		code := DetermineExitCode(ctx, err)
 		if !errors.Is(err, context.Canceled) && !errors.Is(err, tui.ErrFormAborted) {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
@@ -50,10 +51,10 @@ func setupLogger(logPath string, concurrency int, outputDir string, form *tui.Fo
 	return l, logPath
 }
 
-func createTasks(form *tui.FormData, outputDir string) []kernel.Task {
-	tasks := make([]kernel.Task, len(form.URLs))
+func createTasks(form *tui.FormData, outputDir string) []domain.Task {
+	tasks := make([]domain.Task, len(form.URLs))
 	for i, u := range form.URLs {
-		tasks[i] = kernel.Task{
+		tasks[i] = domain.Task{
 			ID:        i + 1,
 			URL:       u,
 			Cookie:    form.Cookie,
@@ -86,8 +87,8 @@ func initKernel(concurrency int, l *logger.Logger, isDemo bool) *kernel.Kernel {
 	return kernel.New(opts...)
 }
 
-func handleCompletion(results []kernel.Result, logPath string) error {
-	var failedResults []kernel.Result
+func handleCompletion(results []domain.Result, logPath string) error {
+	var failedResults []domain.Result
 	for _, res := range results {
 		if res.Err != nil {
 			failedResults = append(failedResults, res)

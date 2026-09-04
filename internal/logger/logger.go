@@ -55,7 +55,7 @@ func New(targetPath string) (*Logger, error) {
 
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			// Redact any attribute key indicating cookies or auth tokens
 			k := strings.ToLower(a.Key)
 			if strings.Contains(k, "cookie") || strings.Contains(k, "token") || strings.Contains(k, "session") {
