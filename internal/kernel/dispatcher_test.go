@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
-	"moofetch/internal/plugins/moodle"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
 )
 
 // TestDispatcher_CircuitBreaker_PromptScenario tests the exact circuit breaker scenario:

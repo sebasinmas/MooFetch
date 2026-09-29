@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"moofetch/internal/auth"
-	"moofetch/internal/domain"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/auth"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 func TestDetermineExitCode_EdgeCases(t *testing.T) {

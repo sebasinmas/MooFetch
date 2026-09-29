@@ -9,12 +9,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
-	"moofetch/internal/logger"
-	"moofetch/internal/plugins/demo"
-	"moofetch/internal/plugins/moodle"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/logger"
+	"github.com/sebasinmas/MooFetch/internal/plugins/demo"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 func main() {

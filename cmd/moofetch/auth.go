@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"moofetch/internal/auth"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/auth"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 var (

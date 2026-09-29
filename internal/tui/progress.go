@@ -11,8 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
 )
 
 // Styling definitions with Lip Gloss and AdaptiveColor for light and dark backgrounds

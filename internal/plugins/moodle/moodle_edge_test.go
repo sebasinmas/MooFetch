@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/plugins/moodle"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
 )
 
 func TestMoodle_ExtractFilename_EdgeCases(t *testing.T) {

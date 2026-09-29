@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"moofetch/internal/auth"
+	"github.com/sebasinmas/MooFetch/internal/auth"
 )
 
 type fakeCookies struct {

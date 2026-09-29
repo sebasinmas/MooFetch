@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 type dummyModel struct {

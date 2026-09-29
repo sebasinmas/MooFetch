@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/plugins/demo"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/plugins/demo"
 )
 
 type downloaderContract interface {

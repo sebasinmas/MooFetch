@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/mattn/go-isatty"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 	"github.com/spf13/cobra"
-	"moofetch/internal/domain"
-	"moofetch/internal/tui"
 )
 
 var (

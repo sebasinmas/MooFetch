@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/logger"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/logger"
 )
 
 var (

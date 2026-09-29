@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
 )
 
 func mkTasks(n int, prefix string) []domain.Task {

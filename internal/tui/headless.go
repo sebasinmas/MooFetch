@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
 )
 
 // RunHeadlessProgress executes the tasks using kernel.Dispatch while streaming

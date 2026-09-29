@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"moofetch/internal/logger"
+	"github.com/sebasinmas/MooFetch/internal/logger"
 )
 
 // TestSessionCookie_LogValuer_PrivacyTDT validates that SessionCookie implementing slog.LogValuer

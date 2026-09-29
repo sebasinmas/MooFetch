@@ -1,4 +1,4 @@
-module moofetch
+module github.com/sebasinmas/MooFetch
 
 go 1.24.2
 

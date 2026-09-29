@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/plugins/moodle"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
 )
 
 var dummyPDF = []byte("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF")

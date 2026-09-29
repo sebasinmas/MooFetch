@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 func TestCleanURLs(t *testing.T) {

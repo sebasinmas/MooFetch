@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"moofetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/domain"
 )
 
 type customFatalAuthError struct {

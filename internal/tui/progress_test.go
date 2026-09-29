@@ -9,8 +9,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
 )
 
 func TestProgressModel_RenderVisual(t *testing.T) {

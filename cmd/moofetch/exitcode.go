@@ -5,9 +5,9 @@ import (
 	"errors"
 	"strings"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/plugins/moodle"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 const (

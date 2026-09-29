@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"moofetch/internal/kernel"
-	"moofetch/internal/plugins/moodle"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 // customFatalAuthMock implements kernel.FatalAuthError interface for polymorphic contract testing.

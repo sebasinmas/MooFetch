@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
-	"moofetch/internal/plugins/demo"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/plugins/demo"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 func TestDemoFlow_EndToEnd(t *testing.T) {

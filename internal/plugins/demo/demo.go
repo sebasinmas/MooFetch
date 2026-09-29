@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/logger"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/logger"
 )
 
 // Plugin simulates downloading PDF resources without performing real HTTP requests.

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"moofetch/internal/domain"
-	"moofetch/internal/kernel"
-	"moofetch/internal/tui"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/kernel"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
 type mockPlugin struct {
