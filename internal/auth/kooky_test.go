@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -48,7 +49,7 @@ func TestKookyProvider_Find(t *testing.T) {
 			{c: ck("old", now.Add(-2*time.Hour), time.Time{})},
 			{c: ck("new", now.Add(-time.Hour), now.Add(time.Hour))},
 			{c: ck("older", now.Add(-3*time.Hour), time.Time{})},
-		}, "new", nil},
+		}, "MoodleSession=new", nil},
 		{"skips errors, nil, empty and expired", []fakeEntry{
 			{err: errors.New("locked db")},
 			{c: nil},
@@ -58,7 +59,7 @@ func TestKookyProvider_Find(t *testing.T) {
 		{"valid after bad entries", []fakeEntry{
 			{err: errors.New("locked db")},
 			{c: ck("ok", now, time.Time{})},
-		}, "ok", nil},
+		}, "MoodleSession=ok", nil},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -77,6 +78,35 @@ func TestKookyProvider_Find_ContextCanceled(t *testing.T) {
 	cancel()
 	if _, err := (KookyProvider{}).Find(ctx, "campus.example.cl"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("want context.Canceled, got %v", err)
+	}
+}
+
+func TestKookyProvider_Find_KeepsRealCookieName(t *testing.T) {
+	c := ck("abc123", time.Now(), time.Time{})
+	c.Name = "MoodleSessionufro"
+	stubTraverse(t, fakeEntry{c: c})
+	got, err := KookyProvider{}.Find(context.Background(), "campus.example.cl")
+	if err != nil || got != "MoodleSessionufro=abc123" {
+		t.Fatalf("got %q %v", got, err)
+	}
+}
+
+func TestKookyProvider_Find_ReportsReadErrorWhenNothingFound(t *testing.T) {
+	stubTraverse(t, fakeEntry{err: errors.New("database is locked")})
+	_, err := KookyProvider{}.Find(context.Background(), "campus.example.cl")
+	if !errors.Is(err, ErrCookieNotFound) || !strings.Contains(err.Error(), "database is locked") {
+		t.Fatalf("error should wrap ErrCookieNotFound and mention the cause, got %v", err)
+	}
+}
+
+func TestIsSessionCookieName(t *testing.T) {
+	for name, want := range map[string]bool{
+		"MoodleSession": true, "MoodleSessionufro": true,
+		"moodlesession": false, "OtherCookie": false, "": false,
+	} {
+		if got := isSessionCookieName(name); got != want {
+			t.Errorf("%q: got %v want %v", name, got, want)
+		}
 	}
 }
 

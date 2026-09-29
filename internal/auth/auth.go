@@ -131,5 +131,10 @@ func Detect(ctx context.Context, p CookieProvider, domain string) (string, error
 	if v == "" {
 		return "", ErrCookieNotFound
 	}
+	// A provider may already return "Name=value" (real cookie name, which can
+	// carry a site suffix); a bare value gets the default name.
+	if strings.Contains(v, "=") {
+		return v, nil
+	}
 	return CookieName + "=" + v, nil
 }
