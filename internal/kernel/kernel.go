@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
-	"godownloader/internal/logger"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/logger"
 )
 
 var (
@@ -17,115 +19,105 @@ var (
 	ErrNilPlugin = errors.New("cannot register a nil plugin")
 )
 
-// Task represents an individual download unit dispatched by the kernel.
-type Task struct {
-	ID        int
-	URL       string
-	Cookie    string
-	OutputDir string
-}
+// Task re-exports domain.Task.
+type Task = domain.Task
 
-// Result captures the final status and outcome of a download task.
-type Result struct {
-	TaskID     int
-	URL        string
-	Filename   string
-	BytesRead  int64
-	TotalBytes int64
-	Err        error
-}
+// Result re-exports domain.Result.
+type Result = domain.Result
 
-// ProgressUpdate contains real-time stream information for a running task.
-type ProgressUpdate struct {
-	TaskID     int
-	URL        string
-	Filename   string
-	BytesRead  int64
-	TotalBytes int64
-}
+// ProgressUpdate re-exports domain.ProgressUpdate.
+type ProgressUpdate = domain.ProgressUpdate
 
-// ProgressFunc is a callback invoked during payload transfer.
-type ProgressFunc func(update ProgressUpdate)
+// ProgressFunc re-exports domain.ProgressFunc.
+type ProgressFunc = domain.ProgressFunc
 
-// EventType categorizes dispatcher event notifications.
-type EventType int
+// EventType re-exports domain.EventType.
+type EventType = domain.EventType
 
+// Event re-exports domain.Event.
+type Event = domain.Event
+
+// EventHandler re-exports domain.EventHandler.
+type EventHandler = domain.EventHandler
+
+// FatalAuthError re-exports domain.FatalAuthError.
+type FatalAuthError = domain.FatalAuthError
+
+// Event constants re-exported from domain.
 const (
-	// EventTaskStarted indicates a task was picked up by an active worker.
-	EventTaskStarted EventType = iota
-	// EventTaskProgress indicates byte transfer progress for a task.
-	EventTaskProgress
-	// EventTaskCompleted indicates a task finished successfully.
-	EventTaskCompleted
-	// EventTaskFailed indicates a task terminated with an error.
-	EventTaskFailed
+	EventTaskStarted   = domain.EventTaskStarted
+	EventTaskProgress  = domain.EventTaskProgress
+	EventTaskCompleted = domain.EventTaskCompleted
+	EventTaskFailed    = domain.EventTaskFailed
 )
 
-// Event represents an atomic status transition sent to kernel observers.
-type Event struct {
-	Type     EventType
-	TaskID   int
-	URL      string
-	Filename string
-	Bytes    int64
-	Total    int64
-	Err      error
-}
+// Sentinel auth error and detector function re-exported from domain.
+var (
+	ErrAuthenticationFailed = domain.ErrAuthenticationFailed
+	IsFatalAuth             = domain.IsFatalAuth
+)
 
-// EventHandler receives real-time download events from the kernel dispatcher.
-type EventHandler func(event Event)
-
-// DownloaderPlugin defines the microkernel contract that all domain download handlers must fulfill.
+// DownloaderPlugin defines the consumer contract required by the kernel for all download handlers.
 type DownloaderPlugin interface {
 	Name() string
 	CanHandle(rawURL string) bool
-	Download(ctx context.Context, task Task, progress ProgressFunc) (*Result, error)
+	Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error)
 }
 
-// Global registry for plugins.
-var (
-	registryMu sync.RWMutex
-	plugins    []DownloaderPlugin
-)
+// Registry stores and manages available downloader plugins in an isolated, thread-safe instance.
+type Registry struct {
+	mu      sync.RWMutex
+	plugins []DownloaderPlugin
+}
 
-// Register adds a new plugin to the global static microkernel registry.
-// Typically invoked inside a plugin package's init() function.
-func Register(p DownloaderPlugin) {
+// NewRegistry creates an empty plugin Registry.
+func NewRegistry() *Registry {
+	return &Registry{}
+}
+
+// Register adds a new plugin to the registry instance.
+func (r *Registry) Register(p DownloaderPlugin) {
 	if p == nil {
 		panic(ErrNilPlugin)
 	}
 
-	registryMu.Lock()
-	defer registryMu.Unlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	for _, existing := range plugins {
+	for _, existing := range r.plugins {
 		if existing.Name() == p.Name() {
 			return // Idempotent registration
 		}
 	}
-	plugins = append(plugins, p)
+	r.plugins = append(r.plugins, p)
 }
 
-// RegisteredPlugins returns a copy of all currently registered plugins in order of addition.
-func RegisteredPlugins() []DownloaderPlugin {
-	registryMu.RLock()
-	defer registryMu.RUnlock()
+// Plugins returns a copy of all registered plugins in the registry.
+func (r *Registry) Plugins() []DownloaderPlugin {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	result := make([]DownloaderPlugin, len(plugins))
-	copy(result, plugins)
+	result := make([]DownloaderPlugin, len(r.plugins))
+	copy(result, r.plugins)
 	return result
 }
 
-// ResetRegistry clears the static registry. Primarily used in unit tests.
-func ResetRegistry() {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-	plugins = nil
+// Resolve finds the first registered plugin that declares it can handle the given URL.
+func (r *Registry) Resolve(rawURL string) (DownloaderPlugin, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, p := range r.plugins {
+		if p.CanHandle(rawURL) {
+			return p, nil
+		}
+	}
+	return nil, fmt.Errorf("%w: %s", ErrNoPluginFound, rawURL)
 }
 
 // Kernel orchestrates URL dispatching and concurrency management across registered plugins.
 type Kernel struct {
-	plugins     []DownloaderPlugin
+	registry    *Registry
 	concurrency int
 	logger      *logger.Logger
 }
@@ -149,18 +141,31 @@ func WithConcurrency(limit int) Option {
 	}
 }
 
-// WithPlugins overrides the plugin set with a custom slice instead of the global registry.
-func WithPlugins(custom []DownloaderPlugin) Option {
+// WithRegistry sets a custom plugin Registry instance on the Kernel.
+func WithRegistry(r *Registry) Option {
 	return func(k *Kernel) {
-		k.plugins = make([]DownloaderPlugin, len(custom))
-		copy(k.plugins, custom)
+		if r != nil {
+			k.registry = r
+		}
 	}
 }
 
-// New creates an initialized Kernel instance using either configured options or the global registry.
+// WithPlugins registers the provided plugins into the Kernel's registry.
+func WithPlugins(custom []DownloaderPlugin) Option {
+	return func(k *Kernel) {
+		if k.registry == nil {
+			k.registry = NewRegistry()
+		}
+		for _, p := range custom {
+			k.registry.Register(p)
+		}
+	}
+}
+
+// New creates an initialized Kernel instance using either configured options or an empty registry.
 func New(opts ...Option) *Kernel {
 	k := &Kernel{
-		plugins:     RegisteredPlugins(),
+		registry:    NewRegistry(),
 		concurrency: 5, // Sensible default to prevent DDoS/throttling
 	}
 
@@ -173,63 +178,182 @@ func New(opts ...Option) *Kernel {
 
 // ResolvePlugin finds the first registered plugin that declares it can handle the given URL.
 func (k *Kernel) ResolvePlugin(rawURL string) (DownloaderPlugin, error) {
-	for _, p := range k.plugins {
-		if p.CanHandle(rawURL) {
-			return p, nil
-		}
+	if k.registry == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNoPluginFound, rawURL)
 	}
-	return nil, fmt.Errorf("%w: %s", ErrNoPluginFound, rawURL)
+	return k.registry.Resolve(rawURL)
 }
 
-// Dispatch executes the given list of tasks concurrently using goroutines and sync.WaitGroup,
-// constrained by the kernel's concurrency limit.
-func (k *Kernel) Dispatch(ctx context.Context, tasks []Task, onEvent EventHandler) []Result {
-	results := make([]Result, len(tasks))
+type indexedTask struct {
+	idx  int
+	task domain.Task
+}
+
+// Dispatch executes the given list of tasks concurrently using a bounded worker pool,
+// constrained by the kernel's concurrency limit. If any task encounters a fatal authentication
+// failure (domain.IsFatalAuth), a circuit breaker triggers early batch cancellation.
+func (k *Kernel) Dispatch(ctx context.Context, tasks []domain.Task, onEvent domain.EventHandler) []domain.Result {
+	results := make([]domain.Result, len(tasks))
 	if len(tasks) == 0 {
 		return results
 	}
 
-	sem := make(chan struct{}, k.concurrency)
+	if err := ctx.Err(); err != nil {
+		return handleImmediateCancellation(tasks, onEvent, err)
+	}
+
+	dispatchCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	tasksChan := make(chan indexedTask, len(tasks))
+	for i, t := range tasks {
+		tasksChan <- indexedTask{idx: i, task: t}
+	}
+	close(tasksChan)
+
+	numWorkers := k.concurrency
+	if numWorkers <= 0 {
+		numWorkers = 1
+	}
+	if len(tasks) < numWorkers {
+		numWorkers = len(tasks)
+	}
+
+	var authFailed atomic.Bool
+	var fatalAuthErr error
+	var authErrMu sync.Mutex
+
 	var wg sync.WaitGroup
-
-	for i, task := range tasks {
+	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
-		go func(idx int, t Task) {
+		go func() {
 			defer wg.Done()
-
-			select {
-			case sem <- struct{}{}:
-				defer func() { <-sem }()
-			case <-ctx.Done():
-				results[idx] = Result{
-					TaskID: t.ID,
-					URL:    t.URL,
-					Err:    ctx.Err(),
-				}
-				emitEvent(onEvent, Event{
-					Type:   EventTaskFailed,
-					TaskID: t.ID,
-					URL:    t.URL,
-					Err:    ctx.Err(),
-				})
-				return
-			}
-
-			results[idx] = k.executeTask(ctx, t, onEvent)
-		}(i, task)
+			k.worker(dispatchCtx, tasksChan, results, onEvent, &authFailed, &fatalAuthErr, &authErrMu, cancel)
+		}()
 	}
 
 	wg.Wait()
+
+	if dispatchCtx.Err() != nil {
+		drainRemainingTasks(tasksChan, results, onEvent, readAuthErr(&fatalAuthErr, &authErrMu), dispatchCtx.Err())
+	}
+
 	return results
 }
 
-func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandler) Result {
+func handleImmediateCancellation(tasks []domain.Task, onEvent domain.EventHandler, err error) []domain.Result {
+	results := make([]domain.Result, len(tasks))
+	for i, t := range tasks {
+		results[i] = domain.Result{
+			TaskID: t.ID,
+			URL:    t.URL,
+			Err:    err,
+		}
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
+			TaskID: t.ID,
+			URL:    t.URL,
+			Err:    err,
+		})
+	}
+	return results
+}
+
+func (k *Kernel) worker(
+	ctx context.Context,
+	tasksChan <-chan indexedTask,
+	results []domain.Result,
+	onEvent domain.EventHandler,
+	authFailed *atomic.Bool,
+	fatalAuthErr *error,
+	authErrMu *sync.Mutex,
+	cancel context.CancelFunc,
+) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case item, ok := <-tasksChan:
+			if !ok {
+				return
+			}
+			if ctx.Err() != nil {
+				// The item was already dequeued, so drainRemainingTasks cannot see it:
+				// record it here or its result would stay zero-valued.
+				failSkippedTask(item, results, onEvent, readAuthErr(fatalAuthErr, authErrMu), ctx.Err())
+				return
+			}
+
+			res := k.executeTask(ctx, item.task, onEvent)
+			results[item.idx] = res
+
+			if domain.IsFatalAuth(res.Err) {
+				k.tripAuthBreaker(res.Err, authFailed, fatalAuthErr, authErrMu, cancel)
+				return
+			}
+		}
+	}
+}
+
+func (k *Kernel) tripAuthBreaker(err error, authFailed *atomic.Bool, fatalAuthErr *error, authErrMu *sync.Mutex, cancel context.CancelFunc) {
+	if !authFailed.CompareAndSwap(false, true) {
+		return
+	}
+	authErrMu.Lock()
+	*fatalAuthErr = err
+	authErrMu.Unlock()
+
+	if k.logger != nil {
+		k.logger.Printf("Lote cancelado tempranamente por fallo de autenticación: %v", err)
+	}
+	cancel()
+}
+
+func readAuthErr(errp *error, mu *sync.Mutex) error {
+	mu.Lock()
+	defer mu.Unlock()
+	return *errp
+}
+
+func drainRemainingTasks(
+	tasksChan <-chan indexedTask,
+	results []domain.Result,
+	onEvent domain.EventHandler,
+	activeAuthErr error,
+	cancelErr error,
+) {
+	for item := range tasksChan {
+		failSkippedTask(item, results, onEvent, activeAuthErr, cancelErr)
+	}
+}
+
+// failSkippedTask marks a task that will never run as failed, using the auth
+// error as the cause when the circuit breaker tripped and cancelErr otherwise.
+func failSkippedTask(item indexedTask, results []domain.Result, onEvent domain.EventHandler, activeAuthErr, cancelErr error) {
+	err := cancelErr
+	if activeAuthErr != nil {
+		err = fmt.Errorf("%w: batch canceled early due to authentication failure", activeAuthErr)
+	}
+	results[item.idx] = domain.Result{
+		TaskID: item.task.ID,
+		URL:    item.task.URL,
+		Err:    err,
+	}
+	emitEvent(onEvent, domain.Event{
+		Type:   domain.EventTaskFailed,
+		TaskID: item.task.ID,
+		URL:    item.task.URL,
+		Err:    err,
+	})
+}
+
+func (k *Kernel) executeTask(ctx context.Context, task domain.Task, onEvent domain.EventHandler) domain.Result {
 	if k.logger != nil {
 		k.logger.LogTaskStart(task.ID, task.URL)
 	}
 
-	emitEvent(onEvent, Event{
-		Type:   EventTaskStarted,
+	emitEvent(onEvent, domain.Event{
+		Type:   domain.EventTaskStarted,
 		TaskID: task.ID,
 		URL:    task.URL,
 	})
@@ -239,13 +363,13 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		if k.logger != nil {
 			k.logger.LogTaskError(task.ID, task.URL, err)
 		}
-		res := Result{
+		res := domain.Result{
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
 		}
-		emitEvent(onEvent, Event{
-			Type:   EventTaskFailed,
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
@@ -253,9 +377,9 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		return res
 	}
 
-	progressWrapper := func(u ProgressUpdate) {
-		emitEvent(onEvent, Event{
-			Type:     EventTaskProgress,
+	progressWrapper := func(u domain.ProgressUpdate) {
+		emitEvent(onEvent, domain.Event{
+			Type:     domain.EventTaskProgress,
 			TaskID:   u.TaskID,
 			URL:      u.URL,
 			Filename: u.Filename,
@@ -269,13 +393,13 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		if k.logger != nil {
 			k.logger.LogTaskError(task.ID, task.URL, err)
 		}
-		failureResult := Result{
+		failureResult := domain.Result{
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
 		}
-		emitEvent(onEvent, Event{
-			Type:   EventTaskFailed,
+		emitEvent(onEvent, domain.Event{
+			Type:   domain.EventTaskFailed,
 			TaskID: task.ID,
 			URL:    task.URL,
 			Err:    err,
@@ -287,8 +411,8 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 		k.logger.LogTaskSuccess(res.TaskID, res.Filename, res.BytesRead)
 	}
 
-	emitEvent(onEvent, Event{
-		Type:     EventTaskCompleted,
+	emitEvent(onEvent, domain.Event{
+		Type:     domain.EventTaskCompleted,
 		TaskID:   res.TaskID,
 		URL:      res.URL,
 		Filename: res.Filename,
@@ -298,7 +422,7 @@ func (k *Kernel) executeTask(ctx context.Context, task Task, onEvent EventHandle
 	return *res
 }
 
-func emitEvent(handler EventHandler, event Event) {
+func emitEvent(handler domain.EventHandler, event domain.Event) {
 	if handler != nil {
 		handler(event)
 	}

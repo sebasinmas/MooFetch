@@ -1,104 +1,35 @@
-name: Release
+name: CD Pipeline (GoReleaser Tagged Release)
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag or version for the release (e.g. v1.0.0)'
-        required: true
-        default: 'v1.0.0'
-      draft:
-        description: 'Create as draft release'
-        required: false
-        type: boolean
-        default: false
-      prerelease:
-        description: 'Mark as pre-release'
-        required: false
-        type: boolean
-        default: false
+      - 'v*' # Disparo restringido exclusivamente a tags oficiales de versión (ej. v1.2.0)
 
 permissions:
-  contents: write
+  contents: write # Permiso necesario para crear la Release en GitHub y subir los binarios generados
 
 jobs:
-  build:
-    name: Build Multiplatform Binaries
+  goreleaser:
+    name: Build & Publish Release
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          # Linux
-          - goos: linux
-            goarch: amd64
-            output_name: godownloader-linux-amd64
-          - goos: linux
-            goarch: arm64
-            output_name: godownloader-linux-arm64
-          # Windows
-          - goos: windows
-            goarch: amd64
-            output_name: godownloader-windows-amd64.exe
-          # macOS (Intel & Apple Silicon)
-          - goos: darwin
-            goarch: amd64
-            output_name: godownloader-darwin-amd64
-          - goos: darwin
-            goarch: arm64
-            output_name: godownloader-darwin-arm64
-
     steps:
-      - name: Checkout Code
+      - name: Checkout Code (Full Git History)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Esencial: GoReleaser necesita todo el historial de commits y tags para versionar y generar changelogs
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: "1.24"
+          check-latest: true
           cache: true
 
-      - name: Build Binary
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --clean
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
-        run: |
-          go build -ldflags="-s -w" -o dist/${{ matrix.output_name }} ./cmd/downloader
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.output_name }}
-          path: dist/${{ matrix.output_name }}
-
-  publish:
-    name: Create GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all binaries
-        uses: actions/download-artifact@v4
-        with:
-          path: release-binaries
-          merge-multiple: true
-
-      - name: Determine Tag
-        id: tag_info
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag_info.outputs.tag }}
-          files: release-binaries/*
-          draft: ${{ github.event.inputs.draft || false }}
-          prerelease: ${{ github.event.inputs.prerelease || false }}
-          generate_release_notes: true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

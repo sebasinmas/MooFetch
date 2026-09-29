@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -16,15 +17,17 @@ import (
 	"strings"
 	"time"
 
-	"godownloader/internal/kernel"
-	"godownloader/internal/logger"
+	"github.com/sebasinmas/MooFetch/internal/domain"
+	"github.com/sebasinmas/MooFetch/internal/logger"
 )
 
 var (
 	// ErrAuthenticationFailed indicates invalid or expired session cookie.
-	ErrAuthenticationFailed = errors.New("authentication failed: invalid or expired session cookie")
+	ErrAuthenticationFailed = fmt.Errorf("%w: invalid or expired session cookie", domain.ErrAuthenticationFailed)
 	// ErrUnexpectedStatus indicates non-2xx HTTP status.
 	ErrUnexpectedStatus = errors.New("unexpected HTTP response status")
+	// ErrInactivityTimeout indicates stream stalled without receiving data within the timeout window.
+	ErrInactivityTimeout = errors.New("download stream stalled: inactivity timeout exceeded")
 )
 
 type contextKey string
@@ -34,18 +37,22 @@ const (
 	taskIDContextKey contextKey = "moodle_task_id"
 )
 
-func init() {
-	kernel.Register(New())
-}
-
 // Plugin handles resource downloads from Moodle platforms (e.g. UFRO Campus Virtual) and generic HTTP endpoints.
 type Plugin struct {
-	client *http.Client
-	logger *logger.Logger
+	client            *http.Client
+	logger            *logger.Logger
+	inactivityTimeout time.Duration
 }
 
 // Option configures a Plugin instance.
 type Option func(*Plugin)
+
+// WithInactivityTimeout sets maximum allowed idle time between received bytes on the stream.
+func WithInactivityTimeout(d time.Duration) Option {
+	return func(p *Plugin) {
+		p.inactivityTimeout = d
+	}
+}
 
 // WithHTTPClient allows passing a customized http.Client (e.g. for testing).
 func WithHTTPClient(client *http.Client) Option {
@@ -65,7 +72,9 @@ func WithLogger(l *logger.Logger) Option {
 
 // New creates a new Plugin with default settings.
 func New(opts ...Option) *Plugin {
-	p := &Plugin{}
+	p := &Plugin{
+		inactivityTimeout: 30 * time.Second,
+	}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -77,8 +86,20 @@ func New(opts ...Option) *Plugin {
 
 func defaultHTTPClient(l *logger.Logger) *http.Client {
 	jar, _ := cookiejar.New(nil)
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   15 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 20 * time.Second,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+	}
 	return &http.Client{
-		Jar: jar,
+		Jar:       jar,
+		Transport: transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if l != nil && len(via) > 0 {
 				taskID, _ := req.Context().Value(taskIDContextKey).(int)
@@ -101,7 +122,7 @@ func defaultHTTPClient(l *logger.Logger) *http.Client {
 			}
 			return nil
 		},
-		Timeout: 60 * time.Second,
+		Timeout: 0,
 	}
 }
 
@@ -109,6 +130,48 @@ func isSameDomain(h1, h2 string) bool {
 	h1 = strings.ToLower(h1)
 	h2 = strings.ToLower(h2)
 	return h1 == h2 || strings.HasSuffix(h1, "."+h2) || strings.HasSuffix(h2, "."+h1)
+}
+
+type idleTimeoutReader struct {
+	r       io.Reader
+	closer  io.Closer
+	timeout time.Duration
+}
+
+func newIdleTimeoutReader(r io.Reader, closer io.Closer, timeout time.Duration) io.Reader {
+	if timeout <= 0 {
+		return r
+	}
+	return &idleTimeoutReader{
+		r:       r,
+		closer:  closer,
+		timeout: timeout,
+	}
+}
+
+func (itr *idleTimeoutReader) Read(p []byte) (int, error) {
+	type readResult struct {
+		n   int
+		err error
+	}
+	done := make(chan readResult, 1)
+	go func() {
+		n, err := itr.r.Read(p)
+		done <- readResult{n: n, err: err}
+	}()
+
+	timer := time.NewTimer(itr.timeout)
+	defer timer.Stop()
+
+	select {
+	case res := <-done:
+		return res.n, res.err
+	case <-timer.C:
+		if itr.closer != nil {
+			_ = itr.closer.Close()
+		}
+		return 0, ErrInactivityTimeout
+	}
 }
 
 // Name returns the identifier of this plugin.
@@ -127,7 +190,7 @@ func (p *Plugin) CanHandle(rawURL string) bool {
 }
 
 // Download downloads the resource specified by task.URL using the given cookie.
-func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel.ProgressFunc) (*kernel.Result, error) {
+func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
 	ctx = context.WithValue(ctx, cookieContextKey, task.Cookie)
 	ctx = context.WithValue(ctx, taskIDContextKey, task.ID)
 
@@ -174,13 +237,18 @@ func (p *Plugin) Download(ctx context.Context, task kernel.Task, progress kernel
 	}
 
 	targetPath := filepath.Join(outDir, filename)
-	bytesWritten, err := writeStreamToFile(resp.Body, targetPath, resp.ContentLength, task, filename, progress)
+	timeout := p.inactivityTimeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	streamReader := newIdleTimeoutReader(resp.Body, resp.Body, timeout)
+	bytesWritten, err := writeStreamToFile(streamReader, targetPath, resp.ContentLength, task, filename, progress)
 	if err != nil {
 		_ = os.Remove(targetPath)
 		return nil, err
 	}
 
-	return &kernel.Result{
+	return &domain.Result{
 		TaskID:     task.ID,
 		URL:        task.URL,
 		Filename:   filename,
@@ -209,29 +277,69 @@ func checkResponseStatus(resp *http.Response) error {
 	return nil
 }
 
-func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, task kernel.Task, filename string, progress kernel.ProgressFunc) (int64, error) {
+func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, task domain.Task, filename string, progress domain.ProgressFunc) (int64, error) {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
 		return 0, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	file, err := os.Create(targetPath)
+	partPath := targetPath + ".moofetch.part"
+	file, err := os.Create(partPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create file: %w", err)
 	}
-	defer func() { _ = file.Close() }()
 
+	var writeErr error
+	var downloaded int64
+	defer func() {
+		_ = file.Close()
+		if writeErr != nil {
+			_ = os.Remove(partPath)
+		}
+	}()
+
+	downloaded, writeErr = copyStreamWithProgress(file, reader, totalBytes, task, filename, progress)
+	if writeErr != nil {
+		return downloaded, writeErr
+	}
+
+	if totalBytes > 0 && downloaded != totalBytes {
+		writeErr = fmt.Errorf("incomplete download: expected %d bytes, got %d", totalBytes, downloaded)
+		return downloaded, writeErr
+	}
+
+	if err := file.Close(); err != nil {
+		writeErr = fmt.Errorf("failed to close file: %w", err)
+		return downloaded, writeErr
+	}
+
+	if err := os.Rename(partPath, targetPath); err != nil {
+		writeErr = fmt.Errorf("failed to rename part file: %w", err)
+		return downloaded, writeErr
+	}
+
+	return downloaded, nil
+}
+
+func copyStreamWithProgress(
+	dst io.Writer,
+	src io.Reader,
+	totalBytes int64,
+	task domain.Task,
+	filename string,
+	progress domain.ProgressFunc,
+) (int64, error) {
 	buf := make([]byte, 32*1024)
 	var downloaded int64
 
 	for {
-		n, readErr := reader.Read(buf)
+		n, readErr := src.Read(buf)
 		if n > 0 {
-			if _, writeErr := file.Write(buf[:n]); writeErr != nil {
-				return downloaded, fmt.Errorf("failed writing to file: %w", writeErr)
+			if _, wErr := dst.Write(buf[:n]); wErr != nil {
+				return downloaded, fmt.Errorf("failed writing to file: %w", wErr)
 			}
 			downloaded += int64(n)
 			if progress != nil {
-				progress(kernel.ProgressUpdate{
+				progress(domain.ProgressUpdate{
 					TaskID:     task.ID,
 					URL:        task.URL,
 					Filename:   filename,
