@@ -32,3 +32,6 @@ go.work.sum
 # .vscode/
 
 todo/
+# GoReleaser output and debug logs
+dist/
+moofetch_debug.txt
