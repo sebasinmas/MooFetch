@@ -327,6 +327,11 @@ func (m *progressModel) renderCompletoBox() string {
 
 // RunProgressUI starts the Bubble Tea parallel download progress interface.
 func RunProgressUI(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, logFilePath string) ([]domain.Result, error) {
+	return runProgressUI(ctx, k, tasks, logFilePath)
+}
+
+// runProgressUI is RunProgressUI with injectable Bubble Tea options, so tests can run without a controlling TTY.
+func runProgressUI(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, logFilePath string, opts ...tea.ProgramOption) ([]domain.Result, error) {
 	model := newProgressModel(ctx, k, tasks, logFilePath)
 	defer func() {
 		if model.cancel != nil {
@@ -335,7 +340,7 @@ func RunProgressUI(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, l
 		model.dispatcherWg.Wait()
 	}()
 
-	p := tea.NewProgram(model)
+	p := tea.NewProgram(model, opts...)
 	finalModel, err := p.Run()
 	if err != nil {
 		return nil, fmt.Errorf("failed to run progress UI: %w", err)

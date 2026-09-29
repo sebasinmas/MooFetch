@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	"io"
 	"runtime"
 	"strings"
 	"testing"
@@ -75,7 +76,7 @@ func TestProgress_CancellationAndGoroutineDrain(t *testing.T) {
 
 	initialGoroutines := runtime.NumGoroutine()
 
-	results, err := RunProgressUI(ctx, k, tasks, "")
+	results, err := runProgressUI(ctx, k, tasks, "", tea.WithInput(nil), tea.WithOutput(io.Discard))
 	if err != nil {
 		t.Fatalf("unexpected error running progress UI: %v", err)
 	}
