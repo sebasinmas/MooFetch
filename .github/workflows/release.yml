@@ -3,7 +3,7 @@ name: CD Pipeline (GoReleaser Tagged Release)
 on:
   push:
     tags:
-      - 'v*' # Disparo restringido exclusivamente a tags oficiales de versión (ej. v1.2.0)
+      - "v*" # Disparo restringido exclusivamente a tags oficiales de versión (ej. v1.2.0)
 
 permissions:
   contents: write # Permiso necesario para crear la Release en GitHub y subir los binarios generados
@@ -26,7 +26,7 @@ jobs:
           cache: true
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
+        uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
