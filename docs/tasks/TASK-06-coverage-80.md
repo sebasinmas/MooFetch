@@ -15,6 +15,22 @@
 | internal/domain | 100% |
 | **Total** | **82.9%** |
 
+## Resultado (antes / después)
+| Paquete | Antes | Después |
+| :--- | :---: | :---: |
+| cmd/moofetch | 67.9% | 93.0% |
+| internal/auth | 75.0% | 96.9% |
+| internal/tui | 78.0% | 93.8% |
+| internal/plugins/demo | 78.9% | 91.4% |
+| internal/plugins/moodle | 83.4% | 83.4% |
+| internal/kernel | 93.2% | 93.2% |
+| internal/logger | 97.9% | 97.9% |
+| internal/domain | 100% | 100% |
+| **Total** | **82.9%** | **93.1%** |
+
+Verificado: `go test -race -count=3 ./...` verde, `gofmt -l .` vacío, `golangci-lint run` 0 issues.
+Notas: el estado global de flags de Cobra se resetea con `resetFlags` (`cmd/moofetch/helpers_test.go`); `auth` usa la costura `traverseCookies`; `tui` usa la costura `testInput` (sin TTY); `main` se extrajo a `realMain`. Bug corregido: el error de cookie ausente por stdin devolvía exit 1 en vez de 2.
+
 ## Condición de éxito
 1. **Cada paquete** con cobertura **> 80%** y el **total > 80%** (`go tool cover -func`).
 2. Sin tests frágiles: pasan con `go test -race -count=2 ./...` sin TTY, red ni navegadores reales.

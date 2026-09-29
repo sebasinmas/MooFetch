@@ -109,6 +109,7 @@ func isUsageError(err error) bool {
 		"required flag",
 		"no se especificaron urls válidas",
 		"se requiere cookie de sesión",
+		"falta la cookie de sesión",
 		"no se detectaron urls válidas",
 		"universidad desconocida",
 		"dominio inválido",

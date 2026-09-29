@@ -3,6 +3,7 @@ package tui
 
 import (
 	"errors"
+	"io"
 	"net/url"
 	"strings"
 
@@ -205,10 +206,22 @@ func RunInteractiveForm(isDemo ...bool) (*FormData, error) {
 	return runForm(NewInteractiveForm(isDemo...))
 }
 
+// testInput, when non-nil, supplies a fresh input reader for every interactive
+// Bubble Tea/huh program and discards their output. It is nil in production
+// (the real terminal is used) and exists so tests run without a TTY.
+var testInput func() io.Reader
+
+func programOptions() []tea.ProgramOption {
+	if testInput == nil {
+		return nil
+	}
+	return []tea.ProgramOption{tea.WithInput(testInput()), tea.WithOutput(io.Discard)}
+}
+
 func runForm(ctrl *FormController) (*FormData, error) {
 	splash := NewSplash(ctrl.Form)
 
-	p := tea.NewProgram(splash)
+	p := tea.NewProgram(splash, programOptions()...)
 	if _, err := p.Run(); err != nil {
 		return nil, err
 	}

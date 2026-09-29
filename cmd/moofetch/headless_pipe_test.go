@@ -9,6 +9,7 @@ import (
 )
 
 func TestPipedExecution_RunWithDemo(t *testing.T) {
+	resetFlags(t)
 	// Simulate stdin by writing to a pipe
 	r, w, err := os.Pipe()
 	if err != nil {

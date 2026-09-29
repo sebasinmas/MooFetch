@@ -361,6 +361,7 @@ func TestDetermineExitCode_RealCancellationSimulation(t *testing.T) {
 
 // TestExitCode_AuthFailureEndToEnd verifies the Cobra CLI execution path maps an auth failure to ExitAuthErr.
 func TestExitCode_AuthFailureEndToEnd(t *testing.T) {
+	resetFlags(t)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login/index.php", http.StatusSeeOther)
 	}))

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,15 +20,22 @@ import (
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	code := realMain(ctx, os.Stderr)
+	stop()
+	os.Exit(code)
+}
 
-	if err := Execute(ctx); err != nil {
-		code := DetermineExitCode(ctx, err)
-		if !errors.Is(err, context.Canceled) && !errors.Is(err, tui.ErrFormAborted) {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		}
-		os.Exit(code)
+// realMain executes the CLI and returns the POSIX exit code, reporting
+// errors on stderr. Split from main so it can be tested without os.Exit.
+func realMain(ctx context.Context, stderr io.Writer) int {
+	err := Execute(ctx)
+	if err == nil {
+		return ExitSuccess
 	}
+	if !errors.Is(err, context.Canceled) && !errors.Is(err, tui.ErrFormAborted) {
+		_, _ = fmt.Fprintf(stderr, "Error: %v\n", err)
+	}
+	return DetermineExitCode(ctx, err)
 }
 
 func setupLogger(logPath string, concurrency int, outputDir string, form *tui.FormData, isDemo bool) (*logger.Logger, string) {

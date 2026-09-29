@@ -71,6 +71,9 @@ func askAuthStep(opts *AuthOptions) (domain string, consent bool, err error) {
 	consent = true
 
 	form := huh.NewForm(buildAuthGroups(opts, domain, &choice, &custom, &consent)...).WithTheme(huh.ThemeCharm())
+	if testInput != nil {
+		form = form.WithInput(testInput()).WithOutput(io.Discard)
+	}
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
 			return "", false, ErrFormAborted

@@ -9,6 +9,7 @@ import (
 )
 
 func TestCobra_HelpOutput(t *testing.T) {
+	resetFlags(t)
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -42,6 +43,7 @@ func TestCobra_VersionSubcommand(t *testing.T) {
 }
 
 func TestCobra_RunMissingURLs(t *testing.T) {
+	resetFlags(t)
 	buf := new(bytes.Buffer)
 	rootCmd.SetOut(buf)
 	rootCmd.SetErr(buf)
@@ -54,6 +56,7 @@ func TestCobra_RunMissingURLs(t *testing.T) {
 }
 
 func TestCobra_HelpCleanup(t *testing.T) {
+	resetFlags(t)
 	for _, args := range [][]string{{"--help"}, {"run", "--help"}} {
 		buf := new(bytes.Buffer)
 		rootCmd.SetOut(buf)
