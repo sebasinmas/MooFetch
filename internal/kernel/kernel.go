@@ -8,8 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/logger"
+	"moofetch/internal/domain"
+	"moofetch/internal/logger"
 )
 
 var (
@@ -235,10 +235,7 @@ func (k *Kernel) Dispatch(ctx context.Context, tasks []domain.Task, onEvent doma
 	wg.Wait()
 
 	if dispatchCtx.Err() != nil {
-		authErrMu.Lock()
-		activeAuthErr := fatalAuthErr
-		authErrMu.Unlock()
-		drainRemainingTasks(tasksChan, results, onEvent, activeAuthErr, dispatchCtx.Err())
+		drainRemainingTasks(tasksChan, results, onEvent, readAuthErr(&fatalAuthErr, &authErrMu), dispatchCtx.Err())
 	}
 
 	return results
@@ -277,7 +274,13 @@ func (k *Kernel) worker(
 		case <-ctx.Done():
 			return
 		case item, ok := <-tasksChan:
-			if !ok || ctx.Err() != nil {
+			if !ok {
+				return
+			}
+			if ctx.Err() != nil {
+				// The item was already dequeued, so drainRemainingTasks cannot see it:
+				// record it here or its result would stay zero-valued.
+				failSkippedTask(item, results, onEvent, readAuthErr(fatalAuthErr, authErrMu), ctx.Err())
 				return
 			}
 
@@ -285,20 +288,31 @@ func (k *Kernel) worker(
 			results[item.idx] = res
 
 			if domain.IsFatalAuth(res.Err) {
-				if authFailed.CompareAndSwap(false, true) {
-					authErrMu.Lock()
-					*fatalAuthErr = res.Err
-					authErrMu.Unlock()
-
-					if k.logger != nil {
-						k.logger.Printf("Lote cancelado tempranamente por fallo de autenticación: %v", res.Err)
-					}
-					cancel()
-				}
+				k.tripAuthBreaker(res.Err, authFailed, fatalAuthErr, authErrMu, cancel)
 				return
 			}
 		}
 	}
+}
+
+func (k *Kernel) tripAuthBreaker(err error, authFailed *atomic.Bool, fatalAuthErr *error, authErrMu *sync.Mutex, cancel context.CancelFunc) {
+	if !authFailed.CompareAndSwap(false, true) {
+		return
+	}
+	authErrMu.Lock()
+	*fatalAuthErr = err
+	authErrMu.Unlock()
+
+	if k.logger != nil {
+		k.logger.Printf("Lote cancelado tempranamente por fallo de autenticación: %v", err)
+	}
+	cancel()
+}
+
+func readAuthErr(errp *error, mu *sync.Mutex) error {
+	mu.Lock()
+	defer mu.Unlock()
+	return *errp
 }
 
 func drainRemainingTasks(
@@ -308,24 +322,29 @@ func drainRemainingTasks(
 	activeAuthErr error,
 	cancelErr error,
 ) {
-	drainErr := cancelErr
-	if activeAuthErr != nil {
-		drainErr = fmt.Errorf("%w: batch canceled early due to authentication failure", activeAuthErr)
-	}
-
 	for item := range tasksChan {
-		results[item.idx] = domain.Result{
-			TaskID: item.task.ID,
-			URL:    item.task.URL,
-			Err:    drainErr,
-		}
-		emitEvent(onEvent, domain.Event{
-			Type:   domain.EventTaskFailed,
-			TaskID: item.task.ID,
-			URL:    item.task.URL,
-			Err:    drainErr,
-		})
+		failSkippedTask(item, results, onEvent, activeAuthErr, cancelErr)
 	}
+}
+
+// failSkippedTask marks a task that will never run as failed, using the auth
+// error as the cause when the circuit breaker tripped and cancelErr otherwise.
+func failSkippedTask(item indexedTask, results []domain.Result, onEvent domain.EventHandler, activeAuthErr, cancelErr error) {
+	err := cancelErr
+	if activeAuthErr != nil {
+		err = fmt.Errorf("%w: batch canceled early due to authentication failure", activeAuthErr)
+	}
+	results[item.idx] = domain.Result{
+		TaskID: item.task.ID,
+		URL:    item.task.URL,
+		Err:    err,
+	}
+	emitEvent(onEvent, domain.Event{
+		Type:   domain.EventTaskFailed,
+		TaskID: item.task.ID,
+		URL:    item.task.URL,
+		Err:    err,
+	})
 }
 
 func (k *Kernel) executeTask(ctx context.Context, task domain.Task, onEvent domain.EventHandler) domain.Result {

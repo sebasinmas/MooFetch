@@ -5,9 +5,9 @@ import (
 	"errors"
 	"strings"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/plugins/moodle"
-	"godownloader/internal/tui"
+	"moofetch/internal/domain"
+	"moofetch/internal/plugins/moodle"
+	"moofetch/internal/tui"
 )
 
 const (
@@ -110,6 +110,8 @@ func isUsageError(err error) bool {
 		"no se especificaron urls válidas",
 		"se requiere cookie de sesión",
 		"no se detectaron urls válidas",
+		"universidad desconocida",
+		"dominio inválido",
 	}
 	for _, kw := range usageKeywords {
 		if strings.Contains(errStr, kw) {

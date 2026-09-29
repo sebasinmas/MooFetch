@@ -13,9 +13,9 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
-	"godownloader/internal/plugins/moodle"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
+	"moofetch/internal/plugins/moodle"
 )
 
 // TestDispatcher_CircuitBreaker_PromptScenario tests the exact circuit breaker scenario:
@@ -101,7 +101,7 @@ func TestDispatcher_CircuitBreaker_HTTPStatusesTDT(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		firstStatusHandler  func(w http.ResponseWriter, r *http.Request)
+		firstStatusHandler   func(w http.ResponseWriter, r *http.Request)
 		expectCircuitBreaker bool
 		expectedServerReqs   int64
 	}{
@@ -338,7 +338,7 @@ func TestDispatcher_BoundedWorkers_DeterministicChannels(t *testing.T) {
 
 // TestDispatcher_GracefulShutdown_CleansPartFile simulates context cancellation (SIGTERM)
 // in the middle of an active download and verifies deterministically that:
-// 1. The temporary .godownload.part file is deleted from disk.
+// 1. The temporary .moofetch.part file is deleted from disk.
 // 2. The temporary file is NEVER renamed to the final destination file.
 // 3. The output directory remains 100% clean without disk garbage.
 func TestDispatcher_GracefulShutdown_CleansPartFile(t *testing.T) {
@@ -396,7 +396,7 @@ func TestDispatcher_GracefulShutdown_CleansPartFile(t *testing.T) {
 	}
 
 	finalPath := filepath.Join(tempDir, "document_sigterm.pdf")
-	partPath := finalPath + ".godownload.part"
+	partPath := finalPath + ".moofetch.part"
 
 	var cancelInvoked atomic.Bool
 

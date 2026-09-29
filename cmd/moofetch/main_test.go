@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
-	"godownloader/internal/plugins/demo"
-	"godownloader/internal/tui"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
+	"moofetch/internal/plugins/demo"
+	"moofetch/internal/tui"
 )
 
 func TestDemoFlow_EndToEnd(t *testing.T) {
@@ -40,7 +40,7 @@ Custom_Apunte.pdf
 
 	// 3. Init kernel with demo plugin (fast step delay for test)
 	demoPlugin := demo.New(
-		demo.WithStepDelay(1 * time.Millisecond),
+		demo.WithStepDelay(1*time.Millisecond),
 		demo.WithWriteDummyFiles(true),
 	)
 	k := kernel.New(

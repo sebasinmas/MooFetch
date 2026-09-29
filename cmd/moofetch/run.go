@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"godownloader/internal/domain"
-	"godownloader/internal/tui"
+	"moofetch/internal/domain"
+	"moofetch/internal/tui"
 )
 
 var (
@@ -21,6 +21,17 @@ var runCmd = &cobra.Command{
 	Short: "Ejecuta descargas en modo directo sin asistente interactivo",
 	Long: `El subcomando run permite descargar lotes de recursos especificando
 las URLs y la cookie de sesión directamente mediante parámetros, archivos o tuberías Unix.`,
+	Example: `  # URLs separadas por comas
+  moofetch run -u "https://campus.example/a.pdf,https://campus.example/b.pdf" -k "$MOODLE_SESSION"
+
+  # Desde un archivo (una URL por línea)
+  moofetch run -f urls.txt -o ./descargas
+
+  # Desde una tubería
+  cat urls.txt | moofetch run -c 10 -k "$MOODLE_SESSION"
+
+  # Simulación sin red
+  moofetch run --demo -f urls.txt -o /tmp/out`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		var rawURLs []string
 
@@ -71,10 +82,14 @@ las URLs y la cookie de sesión directamente mediante parámetros, archivos o tu
 		}
 
 		cookie := flagCookie
-		if cookie == "" && !flagDemo {
-			cookie = os.Getenv("MOODLE_SESSION")
+		if !flagDemo {
+			var cerr error
+			cookie, cerr = resolveHeadlessCookie(cmd.Context(), flagCookie)
+			if cerr != nil {
+				return cerr
+			}
 			if cookie == "" {
-				return fmt.Errorf("se requiere cookie de sesión (usa --cookie (-k) o la variable MOODLE_SESSION)")
+				return fmt.Errorf("se requiere cookie de sesión (usa --cookie (-k), --uni/--domain para detectarla del navegador, o la variable MOODLE_SESSION)")
 			}
 		}
 

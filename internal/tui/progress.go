@@ -11,8 +11,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
 )
 
 // Styling definitions with Lip Gloss and AdaptiveColor for light and dark backgrounds
@@ -25,11 +25,11 @@ var (
 			MarginBottom(1)
 
 	summaryCardBorder = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
-			Padding(0, 2).
-			MarginTop(1).
-			Width(56)
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
+				Padding(0, 2).
+				MarginTop(1).
+				Width(56)
 
 	successBadge = lipgloss.NewStyle().
 			Bold(true).
@@ -241,7 +241,7 @@ func (m *progressModel) applyEvent(ev domain.Event) {
 func (m *progressModel) View() string {
 	var b strings.Builder
 
-	b.WriteString(titleStyle.Render("⚡ GoDownloader • Transferencia Concurrente de Recursos"))
+	b.WriteString(titleStyle.Render("🐄 MooFetch • Transferencia Concurrente de Recursos"))
 	b.WriteString("\n")
 
 	for _, it := range m.items {

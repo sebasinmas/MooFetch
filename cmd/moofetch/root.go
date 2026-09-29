@@ -10,8 +10,8 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-	"godownloader/internal/domain"
-	"godownloader/internal/tui"
+	"moofetch/internal/domain"
+	"moofetch/internal/tui"
 )
 
 var (
@@ -39,11 +39,22 @@ func shouldUseHeadless() bool {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "godownloader",
-	Short: "GoDownloader: Descargas masivas y concurrentes de plataformas educativas (Moodle, etc.)",
-	Long: `GoDownloader es una herramienta CLI de alto rendimiento diseñada para descargar
+	Use:   "moofetch",
+	Short: "MooFetch: Descargas masivas y concurrentes de plataformas educativas (Moodle, etc.)",
+	Long: `MooFetch es una herramienta CLI de alto rendimiento diseñada para descargar
 masivamente y en paralelo archivos PDF y material educativo de plataformas Moodle y similares,
-inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma transparente.`,
+inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma transparente.
+
+Sin argumentos abre un asistente interactivo; con datos por stdin funciona en modo headless.`,
+	Example: `  # Asistente interactivo
+  moofetch
+
+  # URLs por tubería (la cookie viene de MOODLE_SESSION)
+  export MOODLE_SESSION="MoodleSession=abc123"
+  cat urls.txt | moofetch -o ./descargas
+
+  # Salida limpia para scripts (progreso en stderr)
+  grep -o 'https://[^ ]*' pagina.html | moofetch --headless -k "$MOODLE_SESSION"`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		headless := shouldUseHeadless()
 
@@ -74,7 +85,11 @@ inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma tran
 
 			cookie := flagCookie
 			if cookie == "" && !flagDemo {
-				cookie = os.Getenv("MOODLE_SESSION")
+				var cerr error
+				cookie, cerr = resolveHeadlessCookie(cmd.Context(), flagCookie)
+				if cerr != nil {
+					return cerr
+				}
 				if cookie == "" {
 					return fmt.Errorf("se detectó entrada por tubería (stdin), pero falta la cookie de sesión. Usa --cookie (-k) o la variable MOODLE_SESSION")
 				}
@@ -85,8 +100,11 @@ inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma tran
 				URLs:   cleanURLs,
 			}
 		} else {
-			var err error
-			formData, err = tui.RunInteractiveForm(flagDemo)
+			opts, err := authOptions()
+			if err != nil {
+				return err
+			}
+			formData, err = tui.RunInteractiveFormWithAuth(cmd.Context(), opts, flagDemo)
 			if err != nil {
 				if errors.Is(err, tui.ErrFormAborted) {
 					fmt.Fprintln(os.Stderr, "\nDescarga cancelada por el usuario.")
@@ -120,6 +138,7 @@ inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma tran
 }
 
 func init() {
+	rootCmd.CompletionOptions.DisableDefaultCmd = true
 	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate(formatVersion() + "\n")
 
@@ -134,6 +153,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagHeadless, "headless", false, "Ejecutar en modo headless sin TUI (salida de progreso en stderr)")
 	rootCmd.PersistentFlags().BoolVar(&flagPlain, "plain", false, "Alias para --headless")
 	_ = rootCmd.PersistentFlags().MarkHidden("plain")
+
+	rootCmd.PersistentFlags().StringVar(&flagUni, "uni", "", "Universidad del catálogo para detectar la cookie del navegador (ej. ufro)")
+	rootCmd.PersistentFlags().StringVar(&flagDomain, "domain", "", "Dominio personalizado del campus (ej. campus.ejemplo.cl) para detectar la cookie")
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(runCmd)

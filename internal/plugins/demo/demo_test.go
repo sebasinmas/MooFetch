@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/plugins/demo"
+	"moofetch/internal/domain"
+	"moofetch/internal/plugins/demo"
 )
 
 type downloaderContract interface {
@@ -81,7 +81,7 @@ func TestDemoPlugin_ExtractPDFResource(t *testing.T) {
 func TestDemoPlugin_Download(t *testing.T) {
 	tempDir := t.TempDir()
 	p := demo.New(
-		demo.WithStepDelay(1 * time.Millisecond),
+		demo.WithStepDelay(1*time.Millisecond),
 		demo.WithWriteDummyFiles(true),
 	)
 

@@ -1,12 +1,12 @@
 <div align="center">
 
-# ⚡ GoDownloader (CampusFetch)
+# 🐄 MooFetch
 
 **Descargas masivas, concurrentes y resilientes para Campus Virtual UFRO y plataformas Moodle.**  
 *De un script interactivo a un motor CLI de grado empresarial para pipelines Unix, extensiones y GUIs.*
 
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
-[![Version](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/GoDownloader/releases)
+[![Version](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/MooFetch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![POSIX Compliant](https://img.shields.io/badge/POSIX-Sysexits_Compliant-orange?style=for-the-badge&logo=linux)](https://pubs.opengroup.org/)
 
@@ -22,9 +22,9 @@ Al terminar el semestre en el **Campus Virtual de la Universidad de La Frontera 
 
 Las plataformas LMS implementan capas de autenticación con cookies temporales y redirecciones de seguridad (`HTTP 303 See Other` hacia `/login.php`). Estas protecciones rompen de inmediato a los gestores tradicionales como `wget` o `curl`, provocando descargas de archivos HTML corruptos de 2 KB en vez de los documentos deseados.
 
-## 🚀 La Solución: GoDownloader v1.1.0
+## 🚀 La Solución: MooFetch v1.1.0
 
-**GoDownloader** es un motor de descargas concurrente y de alto rendimiento escrito en Go. 
+**MooFetch** es un motor de descargas concurrente y de alto rendimiento escrito en Go. 
 
 En su versión **v1.1.0**, el proyecto evoluciona de un simple asistente interactivo a una **herramienta CLI de grado industrial construida sobre Cobra**, diseñada para operar indistintamente en consolas interactivas o como núcleo de automatización (*headless engine*). Inyecta credenciales en memoria, sortea redirecciones HTTP 303, aísla fallos de sesión con un *Circuit Breaker* inteligente y garantiza la integridad de tu disco mediante escrituras atómicas.
 
@@ -33,11 +33,11 @@ En su versión **v1.1.0**, el proyecto evoluciona de un simple asistente interac
 ## ✨ Características Principales
 
 - 🏎️ **Worker Pool Acotado y Concurrente:** Despacho paralelo mediante goroutines y canales acotados. Previene saturar tanto tu ancho de banda como los servidores institucionales.
-- 🛡️ **Escrituras Atómicas (`.part`)**: Cada archivo se descarga temporalmente con la extensión `.godownload.part`. Si la descarga se cancela o falla a mitad de camino, el residuo se elimina automáticamente, garantizando que nunca queden PDFs incompletos o corruptos en disco.
+- 🛡️ **Escrituras Atómicas (`.part`)**: Cada archivo se descarga temporalmente con la extensión `.moofetch.part`. Si la descarga se cancela o falla a mitad de camino, el residuo se elimina automáticamente, garantizando que nunca queden PDFs incompletos o corruptos en disco.
 - ⚡ **Circuit Breaker ante Expiración de Sesión:** Si tu cookie caduca o es rechazada (HTTP 401, 403 o redirección a login), el motor aborta el lote completo instantáneamente (*fail-fast*), evitando cientos de peticiones infructuosas.
 - 🤖 **Modo Dual: TUI Rica y Headless POSIX:**
   - **Interactivo:** Asistente visual y barras de progreso reactivas desarrolladas con **Charmbracelet** (`bubbletea`, `huh`, `lipgloss`).
-  - **Headless:** Detección automática de tuberías (`cat urls.txt | godownloader run`) con salida de progreso dirigida a `stderr` para no contaminar tus flujos Unix.
+  - **Headless:** Detección automática de tuberías (`cat urls.txt | moofetch run`) con salida de progreso dirigida a `stderr` para no contaminar tus flujos Unix.
 - 🔒 **Privacidad sin Fugas (Zero-Leak):** Las cookies solo existen en la memoria volátil del proceso. Los registros de depuración utilizan `log/slog` con ofuscación nativa (`slog.LogValuer`), ocultando cualquier token antes de tocar el disco.
 - ⏱️ **Transporte HTTP Resiliente:** Soporta descargas continuas de archivos pesados sin timeouts ciegos, incorporando un detector de inactividad de 30 segundos si el servidor se congela.
 - 🎨 **Compatibilidad con `NO_COLOR`:** Degrada elegantemente sus estilos ANSI en fondos claros o entornos donde se especifique la variable de estándar `NO_COLOR=1`.
@@ -47,12 +47,12 @@ En su versión **v1.1.0**, el proyecto evoluciona de un simple asistente interac
 ## 📦 Instalación
 
 ### Opción 1: Binarios Precompilados (Recomendado)
-Descarga el ejecutable para tu plataforma (Linux, macOS o Windows) directamente desde la sección de [Releases](https://github.com/sebasinmas/GoDownloader/releases).
+Descarga el ejecutable para tu plataforma (Linux, macOS o Windows) directamente desde la sección de [Releases](https://github.com/sebasinmas/MooFetch/releases).
 
 ```bash
 # Ejemplo en Linux / macOS:
-tar -xzf godownloader_v1.1.0_linux_amd64.tar.gz
-sudo mv godownloader /usr/local/bin/
+tar -xzf moofetch_v1.1.0_linux_amd64.tar.gz
+sudo mv moofetch /usr/local/bin/
 ```
 
 ### Opción 2: Compilación con Inyección de Versión (`ldflags`)
@@ -60,23 +60,23 @@ Si dispones del toolchain de Go (1.21 o superior):
 
 ```bash
 # Clonar repositorio
-git clone https://github.com/sebasinmas/GoDownloader.git
-cd GoDownloader
+git clone https://github.com/sebasinmas/MooFetch.git
+cd MooFetch
 
 # Compilar binario optimizado inyectando versión y commit
 go build -ldflags "-s -w \
   -X main.Version=1.2.0 \
   -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
   -X main.BuildDate=$(date +%Y-%m-%d)" \
-  -o bin/godownloader ./cmd/godownloader
+  -o bin/moofetch ./cmd/moofetch
 
 # Verificar instalación
-./bin/godownloader --version
+./bin/moofetch --version
 ```
 
 ### Opción 3: Vía `go install`
 ```bash
-go install github.com/sebasinmas/GoDownloader/cmd/godownloader@latest
+go install github.com/sebasinmas/MooFetch/cmd/moofetch@latest
 ```
 
 ---
@@ -101,7 +101,7 @@ go install github.com/sebasinmas/GoDownloader/cmd/godownloader@latest
 Ideal para el uso diario en terminales interactivas:
 
 ```bash
-godownloader
+moofetch
 ```
 
 Un asistente visual te guiará en dos pasos:
@@ -113,21 +113,21 @@ Un asistente visual te guiará en dos pasos:
 
 ## ⚙️ Modo Headless y Pipelines Unix
 
-GoDownloader v1.1.0 es un ciudadano de primera clase en el ecosistema POSIX. Detecta automáticamente si la entrada estándar (`stdin`) o la salida (`stdout`) están conectadas a una tubería, conmutando a modo headless de forma transparente.
+MooFetch v1.1.0 es un ciudadano de primera clase en el ecosistema POSIX. Detecta automáticamente si la entrada estándar (`stdin`) o la salida (`stdout`) están conectadas a una tubería, conmutando a modo headless de forma transparente.
 
 ### Ejemplos en Tuberías (Pipes)
 
 ```bash
 # Ingerir URLs directamente desde un archivo de texto con cookie por parámetro
-cat urls.txt | godownloader run -k "MoodleSession=abc123xyz" --headless
+cat urls.txt | moofetch run -k "MoodleSession=abc123xyz" --headless
 
 # Usar variable de entorno para la cookie y definir salida personalizada
 export MOODLE_SESSION="MoodleSession=abc123xyz"
-cat urls.txt | godownloader run -o ./apuntes_semestre -c 8
+cat urls.txt | moofetch run -o ./apuntes_semestre -c 8
 
 # Filtrar URLs con grep y descargar en paralelo con bandera --file
 grep "pdf" historial_campus.txt > urls_pdf.txt
-godownloader run -k "$MOODLE_SESSION" -f urls_pdf.txt --concurrency 6
+moofetch run -k "$MOODLE_SESSION" -f urls_pdf.txt --concurrency 6
 ```
 
 > **Nota para Desarrolladores:** En modo headless, el registro de avance se transmite a **`stderr`** (`[1/10] ▶ Descargando...`), garantizando que **`stdout`** permanezca limpio para redirecciones de flujos o pipes hacia herramientas como `jq` o `awk`.
@@ -136,7 +136,7 @@ godownloader run -k "$MOODLE_SESSION" -f urls_pdf.txt --concurrency 6
 
 ## 🚦 Códigos de Salida POSIX
 
-GoDownloader implementa códigos de retorno deterministas alineados con la especificación `sysexits.h` y las convenciones POSIX. Esto permite que scripts de bash, CI/CD, extensiones de navegador y aplicaciones de escritorio (Tauri/Wails) manejen el ciclo de vida de la ejecución con precisión:
+MooFetch implementa códigos de retorno deterministas alineados con la especificación `sysexits.h` y las convenciones POSIX. Esto permite que scripts de bash, CI/CD, extensiones de navegador y aplicaciones de escritorio (Tauri/Wails) manejen el ciclo de vida de la ejecución con precisión:
 
 | Código | Constante Interna | Categoría | Descripción Técnica |
 | :---: | :--- | :--- | :--- |
@@ -149,7 +149,7 @@ GoDownloader implementa códigos de retorno deterministas alineados con la espec
 ### Ejemplo de Integración en Scripts Shell
 
 ```bash
-godownloader run -k "$MOODLE_SESSION" -f urls.txt --headless
+moofetch run -k "$MOODLE_SESSION" -f urls.txt --headless
 EXIT_CODE=$?
 
 case $EXIT_CODE in
@@ -175,8 +175,8 @@ esac
 
 ```text
 Uso:
-  godownloader [flags]
-  godownloader [command]
+  moofetch [flags]
+  moofetch [command]
 
 Comandos Disponibles:
   run         Ejecuta descargas en modo directo sin asistente interactivo
@@ -212,14 +212,14 @@ Comandos Disponibles:
 
 ## 🛡️ Privacidad y Seguridad Garantizada
 
-GoDownloader fue desarrollado siguiendo el principio de **Mínimo Privilegio y Cero Persistencia de Secretos**:
+MooFetch fue desarrollado siguiendo el principio de **Mínimo Privilegio y Cero Persistencia de Secretos**:
 
 - **Aislamiento en Memoria:** Tus credenciales de sesión (`MoodleSession`) residen exclusivamente en la memoria volátil del proceso durante el tiempo de ejecución.
 - **Sin Guardado en Disco:** El binario jamás guarda ni almacena tus cookies en archivos de configuración, base de datos local ni historial.
 - **Redacción Automática en Logs:** Al usar el flag `--log debug.txt`, el registrador estructurado (`log/slog`) aplica un formateador criptográfico (`SessionCookie`) que enmascara las cookies en tiempo real:
   ```text
   # Ejemplo de registro seguro generado:
-  time=2026-09-04T00:00:00 level=INFO msg="GoDownloader inicializado" cookie="MoodleSession=a1b***f9z (len: 32)"
+  time=2026-09-04T00:00:00 level=INFO msg="MooFetch inicializado" cookie="MoodleSession=a1b***f9z (len: 32)"
   ```
 - **Protección contra Path Traversal:** Los nombres de archivo recibidos mediante cabeceras HTTP `Content-Disposition` se sanean estrictamente, bloqueando caracteres ilegales o secuencias maliciosas (`../`).
 
@@ -227,7 +227,7 @@ GoDownloader fue desarrollado siguiendo el principio de **Mínimo Privilegio y C
 
 ## 🏗️ Arquitectura del Sistema
 
-GoDownloader está construido bajo el patrón **Microkernel Estático**:
+MooFetch está construido bajo el patrón **Microkernel Estático**:
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -259,7 +259,7 @@ GoDownloader está construido bajo el patrón **Microkernel Estático**:
     ┌─────────────────────────────────────────────────┐
     │ Capa de Transporte Seguro & E/S Atómica         │
     │  - Timeouts de Inactividad (Stream Watcher)     │
-    │  - Archivos Temporales (.godownload.part)       │
+    │  - Archivos Temporales (.moofetch.part)         │
     │  - Registro Estructurado con log/slog Ofuscado  │
     └─────────────────────────────────────────────────┘
 ```
@@ -283,7 +283,7 @@ GoDownloader está construido bajo el patrón **Microkernel Estático**:
 
 ## 🤝 Contribuciones
 
-¡Las contribuciones son bienvenidas! Si deseas reportar un fallo, proponer mejoras o adaptar GoDownloader a la plataforma de tu universidad:
+¡Las contribuciones son bienvenidas! Si deseas reportar un fallo, proponer mejoras o adaptar MooFetch a la plataforma de tu universidad:
 
 1. Haz un **Fork** del proyecto.
 2. Crea una rama para tu función (`git checkout -b feature/nueva-mejora`).

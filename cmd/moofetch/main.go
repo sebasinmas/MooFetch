@@ -1,4 +1,4 @@
-// Package main provides the CLI entrypoint for GoDownloader.
+// Package main provides the CLI entrypoint for MooFetch.
 package main
 
 import (
@@ -9,12 +9,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
-	"godownloader/internal/logger"
-	"godownloader/internal/plugins/demo"
-	"godownloader/internal/plugins/moodle"
-	"godownloader/internal/tui"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
+	"moofetch/internal/logger"
+	"moofetch/internal/plugins/demo"
+	"moofetch/internal/plugins/moodle"
+	"moofetch/internal/tui"
 )
 
 func main() {
@@ -42,9 +42,9 @@ func setupLogger(logPath string, concurrency int, outputDir string, form *tui.Fo
 	}
 
 	if isDemo {
-		l.Printf("GoDownloader inicializado en MODO DEMO. Concurrencia: %d | Directorio: %s", concurrency, outputDir)
+		l.Printf("MooFetch inicializado en MODO DEMO. Concurrencia: %d | Directorio: %s", concurrency, outputDir)
 	} else {
-		l.Printf("GoDownloader inicializado. Concurrencia: %d | Directorio: %s", concurrency, outputDir)
+		l.Printf("MooFetch inicializado. Concurrencia: %d | Directorio: %s", concurrency, outputDir)
 	}
 	l.Printf("Cookie de sesión: %s", logger.RedactCookie(form.Cookie))
 	l.Printf("Total de URLs en cola: %d", len(form.URLs))

@@ -7,8 +7,8 @@ import (
 	"os"
 	"sync"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
 )
 
 // RunHeadlessProgress executes the tasks using kernel.Dispatch while streaming

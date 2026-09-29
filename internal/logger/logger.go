@@ -1,4 +1,4 @@
-// Package logger provides structured, privacy-safe debug logging for GoDownloader
+// Package logger provides structured, privacy-safe debug logging for MooFetch
 // built on top of the standard log/slog library.
 package logger
 
@@ -37,7 +37,7 @@ type Logger struct {
 // New creates and initializes a Logger writing structured text logs to targetPath.
 func New(targetPath string) (*Logger, error) {
 	if strings.TrimSpace(targetPath) == "" {
-		targetPath = "godownloader_debug.txt"
+		targetPath = "moofetch_debug.txt"
 	}
 
 	f, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -47,7 +47,7 @@ func New(targetPath string) (*Logger, error) {
 
 	header := fmt.Sprintf(
 		"================================================================================\n"+
-			" GoDownloader Debug Log - %s\n"+
+			" MooFetch Debug Log - %s\n"+
 			"================================================================================\n\n",
 		time.Now().Format("2006-01-02 15:04:05 MST"),
 	)
@@ -219,6 +219,10 @@ func (l *Logger) LogTaskError(taskID int, rawURL string, err error) {
 	)
 }
 
+// minRevealLen is the longest cookie value that is fully masked; longer values
+// keep 3 chars at each end, which never exposes most of the secret.
+const minRevealLen = 12
+
 // RedactCookie creates a safe, obfuscated summary of a session cookie for logging,
 // ensuring secrets are never persisted to disk.
 func RedactCookie(rawCookie string) string {
@@ -242,7 +246,7 @@ func RedactCookie(rawCookie string) string {
 			continue
 		}
 		val := kv[1]
-		if len(val) <= 6 {
+		if len(val) <= minRevealLen {
 			redactedParts = append(redactedParts, fmt.Sprintf("%s=*** (len: %d)", name, len(val)))
 		} else {
 			prefix := val[:3]
@@ -251,5 +255,8 @@ func RedactCookie(rawCookie string) string {
 		}
 	}
 
+	if len(redactedParts) == 0 {
+		return "(none provided)"
+	}
 	return strings.Join(redactedParts, "; ")
 }

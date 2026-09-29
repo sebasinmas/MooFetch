@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 
-	"godownloader/internal/tui"
+	"moofetch/internal/tui"
 )
 
 type dummyModel struct {
@@ -45,7 +45,7 @@ func TestSplash_InitialState(t *testing.T) {
 
 	view := splash.View()
 	t.Log("\n" + view)
-	if !strings.Contains(view, "CampusFetch") && !strings.Contains(view, "█") {
+	if !strings.Contains(view, "MooFetch") && !strings.Contains(view, "█") {
 		t.Errorf("expected view to contain banner, got: %s", view)
 	}
 	if !strings.Contains(view, "Presiona cualquier tecla") {

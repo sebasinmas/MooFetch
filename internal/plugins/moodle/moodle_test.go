@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/plugins/moodle"
+	"moofetch/internal/domain"
+	"moofetch/internal/plugins/moodle"
 )
 
 var dummyPDF = []byte("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF")
@@ -275,7 +275,7 @@ func TestMoodle_AtomicDownload_Success(t *testing.T) {
 	}
 
 	finalPath := filepath.Join(tempDir, res.Filename)
-	partPath := finalPath + ".godownload.part"
+	partPath := finalPath + ".moofetch.part"
 
 	if _, err := os.Stat(finalPath); err != nil {
 		t.Errorf("expected final file to exist: %v", err)
@@ -309,7 +309,7 @@ func TestMoodle_AtomicDownload_AbortedCleansPartFile(t *testing.T) {
 	}
 
 	finalPath := filepath.Join(tempDir, "corrupt.pdf")
-	partPath := finalPath + ".godownload.part"
+	partPath := finalPath + ".moofetch.part"
 
 	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
 		t.Errorf("expected final file to NOT exist on error, but it was found")
@@ -391,7 +391,7 @@ func TestMoodle_InactivityTimeoutStalled(t *testing.T) {
 	}
 
 	finalPath := filepath.Join(tempDir, "stalled.pdf")
-	partPath := finalPath + ".godownload.part"
+	partPath := finalPath + ".moofetch.part"
 
 	if _, err := os.Stat(finalPath); !os.IsNotExist(err) {
 		t.Errorf("expected target file to NOT exist, but it was found")

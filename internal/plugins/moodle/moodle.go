@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/logger"
+	"moofetch/internal/domain"
+	"moofetch/internal/logger"
 )
 
 var (
@@ -282,7 +282,7 @@ func writeStreamToFile(reader io.Reader, targetPath string, totalBytes int64, ta
 		return 0, fmt.Errorf("failed to create directory: %w", err)
 	}
 
-	partPath := targetPath + ".godownload.part"
+	partPath := targetPath + ".moofetch.part"
 	file, err := os.Create(partPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create file: %w", err)

@@ -1,12 +1,12 @@
-# Arquitectura de GoDownloader (v1.1.x)
+# Arquitectura de MooFetch 🐄 (antes GoDownloader)
 
-Documento de referencia técnica sobre la arquitectura modular, el flujo de dependencias y las pautas de extensibilidad del proyecto `GoDownloader`.
+Documento de referencia técnica sobre la arquitectura modular, el flujo de dependencias y las pautas de extensibilidad del proyecto `MooFetch` (binario `moofetch`).
 
 ---
 
 ## 1. Resumen Ejecutivo y Visión General
 
-`GoDownloader` está estructurado bajo un patrón de **Monolito Modular con Microkernel Estático** inspirado en la **Arquitectura Hexagonal (Puertos y Adaptadores)**.
+`MooFetch` está estructurado bajo un patrón de **Monolito Modular con Microkernel Estático** inspirado en la **Arquitectura Hexagonal (Puertos y Adaptadores)**.
 
 El objetivo central de la arquitectura es mantener el **motor de descargas (Kernel y Dominio) estrictamente desacoplado de las interfaces de usuario** (TUI interactivo, modos por tuberías POSIX, futuras extensiones de navegador y aplicaciones de escritorio).
 
@@ -28,9 +28,9 @@ graph TD
     %% CAPA DE PRESENTACIÓN / CLIENTES (DRIVING ADAPTERS / DRIVERS)
     %% -------------------------------------------------------------
     subgraph Clients ["1. Driving Adapters & Entrypoints (cmd/)"]
-        CMD_CLI["cmd/godownloader<br/><b>CLI & Composition Root</b><br/>(Cobra, DI, Flags, POSIX Exits)"]
-        CMD_GUI["cmd/godownloader-gui<br/><i>[Futuro]</i> <b>Wails Desktop App</b><br/>(React/Svelte + WebView)"]
-        CMD_DAEMON["cmd/godownloader-daemon<br/><i>[Futuro]</i> <b>Extension IPC Daemon</b><br/>(Native Messaging / WebSocket)"]
+        CMD_CLI["cmd/moofetch<br/><b>CLI & Composition Root</b><br/>(Cobra, DI, Flags, POSIX Exits)"]
+        CMD_GUI["cmd/moofetch-gui<br/><i>[Futuro]</i> <b>Wails Desktop App</b><br/>(React/Svelte + WebView)"]
+        CMD_DAEMON["cmd/moofetch-daemon<br/><i>[Futuro]</i> <b>Extension IPC Daemon</b><br/>(Native Messaging / WebSocket)"]
     end
 
     subgraph UI ["2. Terminal UI Layer (internal/tui)"]
@@ -54,6 +54,10 @@ graph TD
         PLUG_DEMO["internal/plugins/demo<br/><b>Demo Plugin</b><br/>(Showcase Simulator & Mocking)"]
     end
 
+    subgraph Auth ["4b. Detección de Token (internal/auth)"]
+        AUTH["internal/auth<br/><b>CookieProvider (puerto) + Catálogo de Universidades</b><br/>(adaptador kooky: Chrome/Firefox/Edge)"]
+    end
+
     subgraph CrossCutting ["5. Soporte Transversal"]
         LOGGER["internal/logger<br/><b>Structured Logging</b><br/>(log/slog, Redacted Secrets)"]
     end
@@ -67,6 +71,9 @@ graph TD
     CMD_CLI --> PLUG_MOODLE
     CMD_CLI --> PLUG_DEMO
     CMD_CLI --> LOGGER
+    CMD_CLI --> AUTH
+    AUTH --> DOMAIN
+    AUTH --> LOGGER
 
     CMD_GUI -.-> KERNEL
     CMD_GUI -.-> PLUG_MOODLE
@@ -103,13 +110,14 @@ graph TD
     class KERNEL,DOMAIN core;
     class PLUG_MOODLE,PLUG_DEMO plugin;
     class LOGGER cross;
+    class AUTH plugin;
 ```
 
 ---
 
 ## 3. Análisis de Capas y Flujo de Datos
 
-### 3.1. Composition Root (`cmd/godownloader`)
+### 3.1. Composition Root (`cmd/moofetch`)
 - Es el único componente con visibilidad global de todos los paquetes.
 - Configura flags POSIX mediante `spf13/cobra`.
 - Detecta si la sesión se ejecuta en una terminal interactiva (TTY) o en modo headless (pipes/CI).
@@ -133,14 +141,20 @@ graph TD
 
 ### 3.4. Adaptadores de Descarga (`internal/plugins/*`)
 - Implementan el contrato esperado por el Kernel para plataformas específicas.
-- `moodle`: Resuelve descargas autenticadas con cookies, gestión de redirecciones HTTP 303, timeouts de inactividad y persistencia atómica mediante archivos temporales `.godownload.part`.
+- `moodle`: Resuelve descargas autenticadas con cookies, gestión de redirecciones HTTP 303, timeouts de inactividad y persistencia atómica mediante archivos temporales `.moofetch.part`.
 - `demo`: Simulación determinista con fluctuaciones de latencia y tamaños de archivo para showcases y pruebas automatizadas.
 - **Totalmente desacoplados entre sí y de la UI.**
 
-### 3.5. Capa de Presentación de Terminal (`internal/tui`)
+### 3.5. Detección de Token (`internal/auth`) — ver ADR 003
+- Puerto consumer-driven `CookieProvider{ Find(ctx, domain) (string, error) }` y catálogo de universidades (`ufro` → `campusvirtual.ufro.cl`, más opción de dominio personalizado).
+- Adaptador concreto basado en `github.com/browserutils/kooky` que lee la cookie `MoodleSession` del dominio desde los navegadores locales.
+- **No** importa `kernel` ni `tui`. El Composition Root (`cmd/moofetch`) lo cablea y entrega el resultado al formulario o al modo headless.
+- Flujo: seleccionar universidad → mensaje de consentimiento → búsqueda en el navegador → si falla o se rechaza, pegado manual / `MOODLE_SESSION`. La cookie nunca se persiste ni se registra sin ofuscar.
+
+### 3.6. Capa de Presentación de Terminal (`internal/tui`)
 - Centraliza toda la interacción con el usuario en terminal:
   - Formulario interactivo con `huh`.
-  - Pantalla splash inicial.
+  - Pantalla splash inicial con la identidad MooFetch (vaca 🐄 en banner, formulario y tarjeta de progreso).
   - Vista reactiva de progreso en tarjeta con Bubble Tea (`tea.Model`) y Lipgloss (soporte `NO_COLOR` y paletas adaptativas).
   - Ejecución en texto plano headless para tuberías Unix (`RunHeadlessProgress`).
 
@@ -156,18 +170,22 @@ La separación en capas permite soportar múltiples consumidores sin alterar el 
 - Los códigos de salida (`sysexits`) permiten control de flujo condicional en pipelines de bash/GitHub Actions.
 
 ### 4.2. Extensión de Navegador (WebExtensions)
-- Se habilitará mediante un ejecutable daemon o *Native Messaging Host* (`cmd/godownloader-daemon`).
+- Se habilitará mediante un ejecutable daemon o *Native Messaging Host* (`cmd/moofetch-daemon`).
 - El servicio recibe URLs y credenciales capturadas por el *service worker* vía JSON por `stdin` o WebSocket local.
 - El daemon delega al `kernel.Dispatch` y reenvía los eventos de progreso en tiempo real al frontend de la extensión.
 
 ### 4.3. Interfaz Gráfica de Escritorio (Wails)
 - La opción recomendada para el ecosistema Go es **Wails** (frente a Tauri), ya que compila el backend Go y el frontend web (React/Svelte) dentro de un único proceso binario nativo.
-- Un controlador `App` en `cmd/godownloader-gui` instancia el `Kernel` y utiliza `runtime.EventsEmit` de Wails para proyectar el flujo de eventos hacia los componentes de UI web, sin requerir adaptadores FFI ni procesos secundarios.
+- Un controlador `App` en `cmd/moofetch-gui` instancia el `Kernel` y utiliza `runtime.EventsEmit` de Wails para proyectar el flujo de eventos hacia los componentes de UI web, sin requerir adaptadores FFI ni procesos secundarios.
 
 ---
 
 ## 5. Decisiones Arquitectónicas Registradas
 
 Para profundizar en las decisiones técnicas y su justificación histórica, consultar los Architectural Decision Records (ADRs):
-- [ADR 001: Interfaz Headless, Tuberías Unix y Códigos de Salida POSIX](file:///home/sebasinmas/develop/GoDownloader/docs/adr/001-interfaz-headless-posix.md)
-- [ADR 002: Desacoplamiento de Dominio, Microkernel Estático y Patrón Consumer-Driven para Plugins](file:///home/sebasinmas/develop/GoDownloader/docs/adr/002-arquitectura-modular-y-dominio.md)
+- [ADR 001: Interfaz Headless, Tuberías Unix y Códigos de Salida POSIX](adr/001-interfaz-headless-posix.md)
+- [ADR 002: Desacoplamiento de Dominio, Microkernel Estático y Patrón Consumer-Driven para Plugins](adr/002-arquitectura-modular-y-dominio.md)
+- [ADR 003: Detección Automática del Token de Sesión Moodle](adr/003-deteccion-automatica-de-token.md)
+- [ADR 004: Rebranding a MooFetch](adr/004-rebranding-moofetch.md)
+
+El plan de trabajo vigente está en [docs/tasks/](tasks/README.md).

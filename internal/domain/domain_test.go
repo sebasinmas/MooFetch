@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"godownloader/internal/domain"
+	"moofetch/internal/domain"
 )
 
 type customFatalAuthError struct {

@@ -47,7 +47,7 @@ Antes de solicitar revisión, marca las casillas que certifiquen el cumplimiento
 2. Ejecutar suite de pruebas: `go test -v -race ./...`
 3. Probar ejecución CLI:
    ```bash
-   go run ./cmd/godownloader --demo
+   go run ./cmd/moofetch --demo
    ```
 
 ---

@@ -100,7 +100,12 @@ type FormController struct {
 // NewInteractiveForm builds and returns the configured Huh form along with a data extractor.
 // Optional isDemo flag enables flexible validation and showcase defaults.
 func NewInteractiveForm(isDemo ...bool) *FormController {
-	demoMode := len(isDemo) > 0 && isDemo[0]
+	return newInteractiveForm(len(isDemo) > 0 && isDemo[0], "")
+}
+
+// newInteractiveForm builds the form. A non-empty preCookie (auto-detected)
+// removes the manual cookie step and is used as the session cookie.
+func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 
 	var (
 		cookie  string
@@ -136,11 +141,11 @@ func NewInteractiveForm(isDemo ...bool) *FormController {
 		}
 	}
 
-	step1Title := "Paso 1: Cookie de Sesión"
-	step2Title := "Paso 2: Enlaces de los Recursos"
+	step1Title := "🐄 MooFetch • Paso 1: Cookie de Sesión"
+	step2Title := "🐄 MooFetch • Paso 2: Enlaces de los Recursos"
 	if demoMode {
-		step1Title = "Paso 1: Cookie de Sesión [MODO DEMO]"
-		step2Title = "Paso 2: Enlaces de los Recursos [MODO DEMO]"
+		step1Title = "🐄 MooFetch • Paso 1: Cookie de Sesión [MODO DEMO]"
+		step2Title = "🐄 MooFetch • Paso 2: Enlaces de los Recursos [MODO DEMO]"
 	}
 
 	step1 := huh.NewGroup(
@@ -164,7 +169,12 @@ func NewInteractiveForm(isDemo ...bool) *FormController {
 			Validate(urlsValidator),
 	)
 
-	form := huh.NewForm(step1, step2).WithTheme(theme)
+	groups := []*huh.Group{step1, step2}
+	if preCookie != "" {
+		cookie = preCookie
+		groups = []*huh.Group{step2}
+	}
+	form := huh.NewForm(groups...).WithTheme(theme)
 
 	return &FormController{
 		Form: form,
@@ -192,7 +202,10 @@ func NewInteractiveForm(isDemo ...bool) *FormController {
 // RunInteractiveForm launches the startup splash screen and seamlessly transitions
 // into the 2-step Huh form using Bubble Tea.
 func RunInteractiveForm(isDemo ...bool) (*FormData, error) {
-	ctrl := NewInteractiveForm(isDemo...)
+	return runForm(NewInteractiveForm(isDemo...))
+}
+
+func runForm(ctrl *FormController) (*FormData, error) {
 	splash := NewSplash(ctrl.Form)
 
 	p := tea.NewProgram(splash)

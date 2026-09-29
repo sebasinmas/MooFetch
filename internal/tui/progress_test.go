@@ -9,8 +9,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
 )
 
 func TestProgressModel_RenderVisual(t *testing.T) {
@@ -30,8 +30,8 @@ func TestProgressModel_RenderVisual(t *testing.T) {
 	}
 
 	out := m.View()
-	if !strings.Contains(out, "GoDownloader") {
-		t.Errorf("expected view to contain 'GoDownloader'")
+	if !strings.Contains(out, "MooFetch") {
+		t.Errorf("expected view to contain 'MooFetch'")
 	}
 	if !strings.Contains(out, "Descargas completadas") {
 		t.Errorf("expected view to contain 'Descargas completadas'")

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
 )
 
 type mockPlugin struct {

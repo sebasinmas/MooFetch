@@ -1,21 +1,21 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # ==============================================================================
 # GoReleaser v2 - Configuración de Release y Compilación Multiplataforma
-# Proyecto: GoDownloader
+# Proyecto: MooFetch
 # ==============================================================================
 version: 2
 
-project_name: godownloader
+project_name: moofetch
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: godownloader
-    # Entrypoint de la CLI (ajustar a ./cmd/downloader si aún no se ha completado la TASK-05)
-    main: ./cmd/godownloader
-    binary: godownloader
+  - id: moofetch
+    # Entrypoint de la CLI
+    main: ./cmd/moofetch
+    binary: moofetch
     env:
       - CGO_ENABLED=0
     goos:
@@ -30,18 +30,10 @@ builds:
     # Esta es la "Única Fuente de la Verdad", inyectando el Tag Git, Commit y Fecha.
     ldflags:
       - -s -w
-      # Inyección si el comando reside en package main
+      # El comando reside en package main
       - -X main.Version={{ .Version }}
       - -X main.Commit={{ .Commit }}
       - -X main.BuildDate={{ .Date }}
-      # Inyección si se referencia el paquete canónico del módulo
-      - -X godownloader/cmd/godownloader.Version={{ .Version }}
-      - -X godownloader/cmd/godownloader.Commit={{ .Commit }}
-      - -X godownloader/cmd/godownloader.BuildDate={{ .Date }}
-      # Inyección bajo el namespace de repositorio remoto en GitHub
-      - -X github.com/sebasinmas/godownloader/cmd/godownloader.Version={{ .Version }}
-      - -X github.com/sebasinmas/godownloader/cmd/godownloader.Commit={{ .Commit }}
-      - -X github.com/sebasinmas/godownloader/cmd/godownloader.BuildDate={{ .Date }}
 
 archives:
   - id: default
@@ -91,10 +83,10 @@ changelog:
 release:
   github:
     owner: sebasinmas
-    name: GoDownloader
+    name: MooFetch
   draft: false
   prerelease: auto
   mode: replace
   header: |
     ## Release {{ .Tag }} ({{ .Date }})
-    Distribución oficial de **GoDownloader**. Binarios precompilados disponibles a continuación.
+    Distribución oficial de **MooFetch**. Binarios precompilados disponibles a continuación.

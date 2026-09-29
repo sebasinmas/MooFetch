@@ -13,12 +13,12 @@ var (
 )
 
 func formatVersion() string {
-	return fmt.Sprintf("GoDownloader v%s (commit: %s, built: %s)", Version, Commit, BuildDate)
+	return fmt.Sprintf("MooFetch v%s (commit: %s, built: %s)", Version, Commit, BuildDate)
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Muestra la versión instalada de GoDownloader",
+	Short: "Muestra la versión instalada de MooFetch",
 	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Println(formatVersion())
 	},

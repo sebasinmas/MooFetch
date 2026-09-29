@@ -29,24 +29,29 @@ type SplashStage struct {
 
 // Default splash stages simulating microkernel and module loading.
 var defaultStages = []SplashStage{
-	{Icon: "⚡", Message: "Inicializando microkernel GoDownloader..."},
+	{Icon: "🐄", Message: "Inicializando microkernel MooFetch..."},
 	{Icon: "🔌", Message: "Cargando motor extractor Moodle v4+..."},
 	{Icon: "🛡️", Message: "Configurando sandbox seguro para cookies de sesión..."},
-	{Icon: "✨", Message: "¡Microkernel listo! Desplegando interfaz interactiva..."},
+	{Icon: "🐄", Message: "¡Moo! Microkernel listo! Desplegando interfaz interactiva..."},
 }
 
-// Compact ASCII quadrant banner: "CampusFetch"
-const defaultBanner = `  █▀▀ ▄▀█ █▀▄▀█ █▀█ █ █ █▀   █▀▀ █▀▀ ▀█▀ █▀▀ █ █
-  █▄▄ █▀█ █ ▀ █ █▀▀ █▄█ ▄█   █▀  ██▄  █  █▄▄ █▀█`
+// Compact ASCII cow plus quadrant banner: "MooFetch"
+const defaultBanner = `         ^__^
+         (oo)\_______
+         (__)\       )\/\
+             ||----w |
+             ||     ||
+  █▀▄▀█ █▀█ █▀█ █▀▀ █▀▀ ▀█▀ █▀▀ █ █
+  █ ▀ █ █▄█ █▄█ █▀  ██▄  █  █▄▄ █▀█`
 
 // Lip Gloss styles tailored with adaptive colors for both light and dark backgrounds
 var (
 	splashCardBorder = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
-			Padding(1, 3).
-			MarginTop(1).
-			MarginBottom(1)
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.AdaptiveColor{Light: "#5B32D6", Dark: "#7D56F4"}).
+				Padding(1, 3).
+				MarginTop(1).
+				MarginBottom(1)
 
 	logoStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -141,7 +146,7 @@ func NewSplash(nextModel tea.Model, opts ...Option) *SplashModel {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#007799", Dark: "#8BE9FD"})
 
 	totalDuration := 1200 * time.Millisecond // 1.2s default: non-blocking & snappy
-	tickInterval := 40 * time.Millisecond   // ~25 FPS
+	tickInterval := 40 * time.Millisecond    // ~25 FPS
 	totalTicks := int(totalDuration / tickInterval)
 	if totalTicks < 1 {
 		totalTicks = 1
@@ -157,7 +162,7 @@ func NewSplash(nextModel tea.Model, opts ...Option) *SplashModel {
 		spinner:       s,
 		stages:        defaultStages,
 		banner:        defaultBanner,
-		subtitle:      "⚡ High-Performance Concurrent Intranet Fetcher",
+		subtitle:      "🐄 MooFetch • High-Performance Concurrent Intranet Fetcher",
 		next:          nextModel,
 		totalDuration: totalDuration,
 		tickInterval:  tickInterval,
@@ -246,7 +251,7 @@ func (m *SplashModel) transitionToNext() (tea.Model, tea.Cmd) {
 // currentStage determines which stage to display based on elapsed tick percentage.
 func (m *SplashModel) currentStage() SplashStage {
 	if len(m.stages) == 0 {
-		return SplashStage{Icon: "⚡", Message: "Inicializando..."}
+		return SplashStage{Icon: "🐄", Message: "Inicializando..."}
 	}
 	pct := float64(m.currentTick) / float64(m.totalTicks)
 	idx := int(pct * float64(len(m.stages)))

@@ -101,12 +101,12 @@ jobs:
           go build -v ./...
 
           echo "🔨 Simulando compilación: Linux amd64..."
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/downloader || GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/godownloader
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/moofetch
 
           echo "🔨 Simulando compilación: macOS arm64..."
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -o /dev/null ./cmd/downloader || GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -o /dev/null ./cmd/godownloader
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -o /dev/null ./cmd/moofetch
 
           echo "🔨 Simulando compilación: Windows amd64..."
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/downloader || GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/godownloader
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o /dev/null ./cmd/moofetch
 
           echo "✅ Simulacro de compilación completado con éxito (0 artefactos publicados)."

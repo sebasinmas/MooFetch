@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"godownloader/internal/domain"
-	"godownloader/internal/kernel"
-	"godownloader/internal/tui"
+	"moofetch/internal/domain"
+	"moofetch/internal/kernel"
+	"moofetch/internal/tui"
 )
 
 type mockPlugin struct {

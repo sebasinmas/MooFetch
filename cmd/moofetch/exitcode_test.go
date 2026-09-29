@@ -8,9 +8,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"godownloader/internal/kernel"
-	"godownloader/internal/plugins/moodle"
-	"godownloader/internal/tui"
+	"moofetch/internal/kernel"
+	"moofetch/internal/plugins/moodle"
+	"moofetch/internal/tui"
 )
 
 // customFatalAuthMock implements kernel.FatalAuthError interface for polymorphic contract testing.

@@ -1,5 +1,5 @@
 // Package domain defines pure domain models, event primitives, and domain-level errors
-// with zero internal dependencies across GoDownloader.
+// with zero internal dependencies across MooFetch.
 package domain
 
 import (

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"testing"
 
-	"godownloader/internal/logger"
+	"moofetch/internal/logger"
 )
 
 // TestSessionCookie_LogValuer_PrivacyTDT validates that SessionCookie implementing slog.LogValuer
@@ -237,7 +237,7 @@ func TestLogger_WriteAndRead(t *testing.T) {
 
 	contentStr := string(content)
 	checks := []string{
-		"GoDownloader Debug Log",
+		"MooFetch Debug Log",
 		"System initialized with 5 workers",
 		"task_id=1",
 		"status=303",
@@ -437,5 +437,41 @@ func TestLogger_NilSafeGuards(t *testing.T) {
 	}
 	if err := l.Close(); err != nil {
 		t.Errorf("expected Close() on nil logger to return nil, got: %v", err)
+	}
+}
+
+func TestRedactCookie_ShortAndDegenerateValues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name, input, want string
+	}{
+		{"only separators", " ; ;; ", "(none provided)"},
+		{"empty value", "MoodleSession=", "MoodleSession=*** (len: 0)"},
+		{"7 char value is fully masked", "MoodleSession=abcdefg", "MoodleSession=*** (len: 7)"},
+		{"12 char value is fully masked", "MoodleSession=abcdefghijkl", "MoodleSession=*** (len: 12)"},
+		{"13 char value keeps edges only", "MoodleSession=abcdefghijklm", "MoodleSession=abc***klm (len: 13)"},
+		{"multiple cookies", "a=short; MoodleSession=abcdefghijklmnop", "a=*** (len: 5); MoodleSession=abc***nop (len: 16)"},
+		{"value containing equals", "k=abc=def=ghi=jkl=mno", "k=abc***mno (len: 19)"},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := logger.RedactCookie(tc.input); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSessionCookie_EmptyAndShortNeverLeak(t *testing.T) {
+	t.Parallel()
+	for _, secret := range []string{"", "x", "abcdefg"} {
+		c := logger.SessionCookie("MoodleSession=" + secret)
+		out := c.String() + " " + c.LogValue().String()
+		if secret != "" && strings.Contains(out, secret) {
+			t.Errorf("leaked %q in %q", secret, out)
+		}
 	}
 }

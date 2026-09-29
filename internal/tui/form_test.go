@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"godownloader/internal/tui"
+	"moofetch/internal/tui"
 )
 
 func TestCleanURLs(t *testing.T) {
@@ -161,3 +161,9 @@ func TestNewInteractiveForm_DemoDefaults(t *testing.T) {
 	}
 }
 
+func TestNewInteractiveForm_PreDetectedCookieSkipsStep(t *testing.T) {
+	ctrl := tui.NewInteractiveFormWithCookie(false, "MoodleSession=detected")
+	if got := ctrl.GetData().Cookie; got != "MoodleSession=detected" {
+		t.Fatalf("cookie = %q", got)
+	}
+}
