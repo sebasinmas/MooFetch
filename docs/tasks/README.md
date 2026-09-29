@@ -9,6 +9,7 @@ graph TD
     T02 --> T03[TASK-03 Tests edge cases]
     T04 --> T03
     T03 --> T05[TASK-05 Verificación final]
+    T05 --> T06[TASK-06 Cobertura > 80%]
 ```
 
 | Tarea | Estado |
@@ -18,5 +19,6 @@ graph TD
 | [TASK-03 Tests de casos borde y QoL](TASK-03-unit-tests-edge-cases.md) | [x] |
 | [TASK-04 Autodetección de token](TASK-04-token-autodetect.md) | [x] |
 | [TASK-05 Verificación final](TASK-05-final-verification.md) | [x] |
+| [TASK-06 Cobertura > 80%](TASK-06-coverage-80.md) | [ ] |
 
 Reglas para agentes: no hacer commits salvo petición; TASK-02 y TASK-04 tocan `root.go`/`form.go`, por lo que se ejecutan en worktrees aislados; marcar el checkbox al terminar.

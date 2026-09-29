@@ -24,7 +24,7 @@ Calidad antes de subir (lo mismo que valida CI, más el linter):
 ```bash
 gofmt -l .                     # debe imprimir nada
 golangci-lint run              # config en .golangci.yml
-go test -race ./...            # un test de internal/tui necesita /dev/tty (falla sin terminal real)
+go test -race ./...
 ```
 
 ## 2. CI (`.github/workflows/ci.yml`)
