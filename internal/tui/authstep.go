@@ -31,7 +31,7 @@ type AuthOptions struct {
 const otherDomain = "\x00other"
 
 // consentText is shown before any browser store is read.
-const consentText = "MooFetch leerá SOLO la cookie MoodleSession de tu campus desde los navegadores instalados (Chrome, Chromium, Firefox, Edge).\nSe usa únicamente en memoria: no se guarda en disco ni se registra."
+const consentText = "MooFetch leerá SOLO la cookie MoodleSession de tu campus desde los navegadores instalados (Chrome, Chromium, Edge, Firefox, Opera, Brave y Safari en macOS).\nSe usa únicamente en memoria: no se guarda en disco ni se registra."
 
 // RunInteractiveFormWithAuth runs the university/consent step, tries to detect
 // the cookie and then the regular form. Any failure or refusal falls back to

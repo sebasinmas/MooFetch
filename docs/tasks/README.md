@@ -24,7 +24,7 @@ graph TD
 | [TASK-04 Autodetección de token](TASK-04-token-autodetect.md) | [x] |
 | [TASK-05 Verificación final](TASK-05-final-verification.md) | [x] |
 | [TASK-06 Cobertura > 80%](TASK-06-coverage-80.md) | [x] |
-| [TASK-07 Firefox session store](TASK-07-firefox-session-store.md) (rama `fix/cookie-autodetect`, pendiente de fusión) | [ ] |
+| [TASK-07 Firefox session store](TASK-07-firefox-session-store.md) (fusionada; verificación manual en Firefox pendiente) | [ ] |
 | [TASK-08 Verificación manual Edge/Opera/Safari/Chrome](TASK-08-verificacion-manual-navegadores.md) | [ ] |
 | [TASK-09 Logo antes de la selección de campus](TASK-09-orden-logo-campus.md) (en proceso) | [ ] |
 

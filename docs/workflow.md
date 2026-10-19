@@ -60,7 +60,7 @@ goreleaser release --snapshot --clean       # construye todo en ./dist sin tag n
 ## 4. Flujo de ramas y trazabilidad
 Flujo: `fix/*` (o `feature/*`) → `develop` → `main`. Cada paso entra por PR (así corre CI); los tags de versión se crean desde `main`.
 
-- Una rama sin fusionar se documenta como **en proceso** (hoy: `fix/cookie-autodetect`, Firefox; ver [ADR 003](adr/003-deteccion-automatica-de-token.md)).
+- Una rama sin fusionar se documenta como **en proceso** en su item `TR-` hasta que entra a `develop`.
 - **Regla:** todo cambio que se fusione debe añadir o actualizar su item `TR-` en [`traceability.json`](traceability.json) y regenerar la tabla con `go run scripts/gen-traceability.go` (ver [traceability.md](traceability.md), que también explica cómo generar patchnotes).
 
 ## 5. Buenas prácticas

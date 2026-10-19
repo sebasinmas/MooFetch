@@ -31,16 +31,16 @@ Hoy el usuario debe copiar manualmente la cookie `MoodleSession` desde las DevTo
 | Edge | Sí | Por implementar (TR-008) | Sin verificar. |
 | Opera | Sí | Por implementar (TR-009) | Sin verificar. |
 | Safari | Sí, solo macOS | Por implementar (TR-010) | Solo existe en macOS; se necesita un equipo macOS para verificar. |
-| Firefox | Parcial: solo `cookies.sqlite` | Por implementar | No encuentra `MoodleSession` sin el arreglo de la sección 7. |
+| Firefox | Sí: `cookies.sqlite` y session store (sección 7) | Por implementar (TR-019) | Fusionado en `develop`; sin verificar manualmente. |
 | Brave | Sí | Por implementar | Sin verificar. |
 
 Chromium también está registrado, sin verificar. Como `MoodleSession` es una cookie de sesión (sección 7), queda por comprobar si cada navegador basado en Chromium la deja en su almacén en disco; esa es justamente una de las razones de la verificación manual. Las builds de release usan `CGO_ENABLED=0`; el efecto real en cada plataforma tampoco está verificado.
 
-## 6. Brecha conocida: lista soportada vs. texto de consentimiento
-El mensaje de consentimiento (`consentText` en `internal/tui/authstep.go`) menciona únicamente «Chrome, Chromium, Firefox, Edge», mientras que `browser/all` también registra Opera, Brave y Safari (macOS). Es una brecha menor y conocida: o se amplía el texto, o se limita la búsqueda. No hay tarea abierta aún; al decidirlo, actualizar este ADR.
+## 6. Texto de consentimiento
+El mensaje de consentimiento (`consentText` en `internal/tui/authstep.go`) lista ahora todos los navegadores que busca kooky: Chrome, Chromium, Edge, Firefox, Opera, Brave y Safari (macOS). Si se limita o amplía la búsqueda, el texto debe mantenerse alineado.
 
-## 7. Limitación Firefox (en proceso)
+## 7. Limitación Firefox (resuelta, pendiente de verificación manual)
 - Moodle emite `MoodleSession` como **cookie de sesión** (sin fecha de expiración). Firefox **no** las guarda en `cookies.sqlite`, que es lo único que lee kooky.
 - Mientras el navegador está abierto, esas cookies viven en el respaldo de sesión: `sessionstore-backups/recovery.jsonlz4` (y, como alternativas, `recovery.baklz4` y `previous.jsonlz4`), comprimido en formato mozLz4.
-- Moodle permite que cada sitio añada un sufijo al nombre de la cookie (`MoodleSession<sufijo>`), por lo que el filtro debe aceptar el prefijo `MoodleSession` y no solo el nombre exacto.
-- El arreglo (lectura del session store de Firefox, búsqueda en carpetas de perfil nuevas como `~/.config/mozilla/firefox`, y coincidencia por prefijo) está en la rama **`fix/cookie-autodetect`**, commit `7c20081`, **sin fusionar**. Estado: **en proceso** (TR-006, [TASK-07](../tasks/TASK-07-firefox-session-store.md)). Hasta que se fusione, en Firefox se cae al pegado manual.
+- Moodle permite que cada sitio añada un sufijo al nombre de la cookie (`MoodleSession<sufijo>`), por lo que el filtro acepta el prefijo `MoodleSession` y no solo el nombre exacto. `Detect` devuelve el nombre real de la cookie (`Nombre=valor`).
+- El arreglo (lectura del session store de Firefox en `internal/auth/firefox.go`, búsqueda en carpetas de perfil nuevas como `~/.config/mozilla/firefox`, y coincidencia por prefijo) se originó en la rama `fix/cookie-autodetect` (commit `7c20081`) y está fusionado en `develop` (TR-006, [TASK-07](../tasks/TASK-07-firefox-session-store.md)). Falta la verificación manual con una sesión real (TR-019).

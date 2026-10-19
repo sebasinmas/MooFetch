@@ -83,7 +83,32 @@ go install github.com/sebasinmas/MooFetch/cmd/moofetch@latest
 
 ## 📖 Inicio Rápido
 
-### 1. Obtener la Cookie de Sesión (10 Segundos)
+### 1. Obtener la Cookie de Sesión
+
+#### Opción A: Automática (recomendada)
+
+MooFetch puede buscar la cookie por ti en los navegadores de tu computador (Chrome, Chromium, Edge y Firefox).
+
+1. Inicia sesión en tu campus virtual con tu navegador de siempre.
+2. Ejecuta `moofetch`. Te preguntará **"¿Cuál es tu universidad?"**. Elige la tuya (por ejemplo, UFRO usa `campusvirtual.ufro.cl`) o escribe otro dominio con **"Otra…"**.
+3. Lee el aviso y acepta. MooFetch busca la cookie de ese sitio y sigue solo.
+4. Si no la encuentra, te deja pegarla a mano (Opción B).
+
+Sin el asistente, usa las banderas `--uni` o `--domain`:
+
+```bash
+moofetch run --uni ufro -f urls.txt
+moofetch run --domain campus.miuniversidad.cl -f urls.txt
+```
+
+Notas:
+- Cierra y vuelve a abrir el navegador si la búsqueda falla: a veces bloquea sus archivos mientras está abierto.
+- Firefox: MoodleSession es una cookie de sesión, así que Firefox la guarda en su copia de la sesión y no en `cookies.sqlite`. MooFetch también lee esa copia, incluso en la carpeta nueva `~/.config/mozilla/firefox`. Mantén Firefox abierto con tu sesión iniciada.
+- En Linux, el navegador puede pedir acceso a tu llavero de contraseñas para leer la cookie.
+- MooFetch solo lee la cookie de **ese** dominio. No la guarda en disco ni la muestra en los registros.
+- Orden de búsqueda sin asistente: `--cookie`, luego el navegador (`--uni`/`--domain`), luego `MOODLE_SESSION`.
+
+#### Opción B: A mano (10 segundos)
 
 1. Abre tu navegador e inicia sesión en el **Campus Virtual UFRO** (o tu intranet Moodle).
 2. Presiona `F12` para desplegar las **Herramientas de Desarrollador** y ve a la pestaña **Red** (*Network*).
@@ -113,7 +138,7 @@ Flujo real del asistente, en el orden en que se ejecuta hoy:
    2. Lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
 4. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
 
-> **Nota:** en el código actual el paso de campus ocurre *antes* del logo. El orden decidido es logo primero, aún no implementado ([TR-018](docs/traceability.md)). La detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox está **en proceso** (rama `fix/cookie-autodetect`, sin fusionar) y la verificación manual en cada navegador sigue pendiente.
+> **Nota:** en el código actual el paso de campus ocurre *antes* del logo. El orden decidido es logo primero, aún no implementado ([TR-018](docs/traceability.md)). La detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox (cookie de sesión desde la copia de la sesión) ya está fusionado, y la verificación manual en cada navegador sigue pendiente.
 
 ---
 
@@ -199,6 +224,8 @@ Comandos Disponibles:
 | `--output` | `-o` | `"."` | Carpeta de destino para los archivos descargados. |
 | `--headless` | | `false` | Fuerza la ejecución en modo headless (progreso plano a `stderr`). |
 | `--log` | `-l` | `""` | Genera un archivo de diagnóstico estructurado con `log/slog`. |
+| `--uni` | | `""` | Universidad de la lista (ej. `ufro`). Busca la cookie en tu navegador. |
+| `--domain` | | `""` | Dominio de tu Moodle (ej. `campus.miuniversidad.cl`). Gana sobre `--uni`. |
 | `--demo` | `-d` | `false` | Modo simulación local para presentaciones y pruebas de carga. |
 | `--version` | `-v` | | Imprime la versión del binario. |
 
@@ -283,8 +310,8 @@ El estado detallado de cada funcionalidad (fecha, rama, commit y versión) está
 
 - [x] **v1.1.0:** Migración a Cobra, soporte Headless, escrituras atómicas, Circuit Breaker y códigos POSIX.
 - [x] **Selección de campus y autodetección de la cookie** (Chrome/Chromium/Edge/Opera/Brave vía kooky; verificación manual pendiente).
-- [ ] **Autodetección en Firefox:** *en proceso* en la rama `fix/cookie-autodetect` (sin fusionar).
-- [ ] **Verificación manual por navegador:** Chrome, Edge, Opera y Safari (solo macOS).
+- [x] **Autodetección en Firefox** (cookie de sesión desde la copia de la sesión): fusionada; verificación manual pendiente.
+- [ ] **Verificación manual por navegador:** Chrome, Edge, Opera, Firefox y Safari (solo macOS).
 - [ ] **Extensión de Navegador (Chrome MV3):** Captura de enlaces y sesión con un solo clic desde el Campus Virtual.
 - [ ] **Aplicación de Escritorio Multiplataforma (Tauri / Wails):** GUI visual que reutiliza el núcleo (kernel y dominio) de este proyecto.
 - [ ] **Soporte para Carpetas Moodle (`mod/folder`):** Extracción recursiva de archivos comprimidos o directorios completos.

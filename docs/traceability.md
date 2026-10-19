@@ -9,7 +9,7 @@ Este documento responde a la pregunta «¿qué tiene el proyecto, desde cuándo 
 | Estado | Significado |
 | :--- | :--- |
 | `implementado` | Está en la rama `develop` (código y tests). Si la verificación manual está pendiente, se indica en la descripción del item y tiene su propio item. |
-| `en proceso` | Existe trabajo en una rama que **aún no se fusiona** (por ahora `fix/cookie-autodetect`). |
+| `en proceso` | Existe trabajo en una rama que **aún no se fusiona** (hoy: TR-018, logo antes del campus). |
 | `por implementar` | No existe código aún; la fecha del item es `null`. |
 
 La **fecha** es la del commit principal (`git log`). La **versión** es el tag más antiguo que contiene ese commit (`v1.0.0`, `v1.1.0`); `null` si aún no se publica.
@@ -24,7 +24,7 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-003 | Logo / splash con vaca (marca MooFetch) | 2026-09-03 | implementado | `develop` / `e2c6510` | v1.1.0 |
 | TR-004 | Selección de campus (UFRO: campusvirtual.ufro.cl) | 2026-09-29 | implementado | `develop` / `68ef9f3` | v1.1.0 |
 | TR-005 | Extracción automática de MoodleSession (Chrome/Chromium/Edge/Opera/Brave vía kooky) | 2026-09-29 | implementado | `develop` / `68ef9f3` | v1.1.0 |
-| TR-006 | Firefox: cookie de sesión desde sessionstore-backups | 2026-09-29 | en proceso | `fix/cookie-autodetect` / `7c20081` | — |
+| TR-006 | Firefox: cookie de sesión desde sessionstore-backups | 2026-09-29 | implementado | `develop` / `7c20081` | — |
 | TR-007 | Verificación manual de autodetección en Chrome | — | por implementar | — | — |
 | TR-008 | Verificación manual de autodetección en Edge | — | por implementar | — | — |
 | TR-009 | Verificación manual de autodetección en Opera | — | por implementar | — | — |
@@ -37,12 +37,13 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-016 | Extensión de navegador | — | por implementar | — | — |
 | TR-017 | Aplicación de escritorio (GUI) | — | por implementar | — | — |
 | TR-018 | Orden del flujo interactivo: logo antes del campus | — | en proceso | — | — |
+| TR-019 | Verificación manual de autodetección en Firefox (session store) | — | por implementar | — | — |
 <!-- END TABLE -->
 
 ## Notas
 
 - **Orden del flujo interactivo (decidido, en proceso, TR-018):** en el código actual el paso de campus y consentimiento (`internal/tui/authstep.go`) se ejecuta **antes** del splash con el logo (`internal/tui/form.go`, `runForm`). El dueño decidió (2026-10-19) que el logo vaya primero, pero **aún no está implementado**; el trabajo está en [TASK-09](tasks/TASK-09-orden-logo-campus.md).
-- **Firefox (TR-006):** el arreglo vive solo en la rama `fix/cookie-autodetect` (commit `7c20081`) y no está fusionado. Detalle en [ADR 003](adr/003-deteccion-automatica-de-token.md).
+- **Firefox (TR-006):** el arreglo se originó en la rama `fix/cookie-autodetect` (commit `7c20081`) y está fusionado en `develop`; la verificación manual es TR-019. Detalle en [ADR 003](adr/003-deteccion-automatica-de-token.md).
 - **Verificación manual (TR-007 a TR-010):** ningún navegador se ha verificado manualmente contra el campus real; los tests usan un proveedor de cookies falso. Ver [TASK-08](tasks/TASK-08-verificacion-manual-navegadores.md).
 
 ## Cómo mantenerlo

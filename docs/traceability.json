@@ -57,13 +57,13 @@
   {
     "id": "TR-006",
     "titulo": "Firefox: cookie de sesión desde sessionstore-backups",
-    "descripcion": "Firefox no guarda MoodleSession en cookies.sqlite (es una cookie de sesión); vive en sessionstore-backups/recovery.jsonlz4 (también recovery.baklz4 y previous.jsonlz4). El arreglo lee esos archivos y acepta nombres MoodleSession<sufijo>. Existe solo en la rama fix/cookie-autodetect, aún sin fusionar.",
+    "descripcion": "Firefox no guarda MoodleSession en cookies.sqlite (es una cookie de sesión); vive en sessionstore-backups/recovery.jsonlz4 (también recovery.baklz4 y previous.jsonlz4). El arreglo lee esos archivos y acepta nombres MoodleSession<sufijo>. Originado en la rama fix/cookie-autodetect y fusionado en develop (2026-10-19). Falta verificación manual en Firefox (TR-019).",
     "fecha": "2026-09-29",
-    "estado": "en proceso",
-    "rama": "fix/cookie-autodetect",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "7c20081",
     "version": null,
-    "evidencia": ["internal/auth/firefox.go (solo en rama fix/cookie-autodetect)", "internal/auth/kooky.go (modificado en la rama)", "docs/adr/003-deteccion-automatica-de-token.md"]
+    "evidencia": ["internal/auth/firefox.go", "internal/auth/kooky.go", "docs/adr/003-deteccion-automatica-de-token.md"]
   },
   {
     "id": "TR-007",
@@ -196,5 +196,16 @@
     "commit": null,
     "version": null,
     "evidencia": ["internal/tui/authstep.go", "internal/tui/form.go", "docs/tasks/TASK-09-orden-logo-campus.md"]
+  },
+  {
+    "id": "TR-019",
+    "titulo": "Verificación manual de autodetección en Firefox (session store)",
+    "descripcion": "Comprobar con una sesión real del campus que MooFetch obtiene MoodleSession desde sessionstore-backups en Firefox (Linux al menos). Ver TASK-07.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/tasks/TASK-07-firefox-session-store.md"]
   }
 ]
