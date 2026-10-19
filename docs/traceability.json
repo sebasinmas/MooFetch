@@ -1,0 +1,200 @@
+[
+  {
+    "id": "TR-001",
+    "titulo": "Stack base: Go + Cobra + Charm + Bubble Tea",
+    "descripcion": "Proyecto en Go (go.mod 1.24.2). CLI con spf13/cobra (incorporado en 6605513), TUI con Charm (huh, lipgloss, bubbles) y Bubble Tea. Inicio del repositorio en 563c378.",
+    "fecha": "2026-09-03",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "563c378",
+    "version": "v1.0.0",
+    "evidencia": ["go.mod", "cmd/moofetch/root.go", "internal/tui/form.go", "internal/tui/progress.go"]
+  },
+  {
+    "id": "TR-002",
+    "titulo": "Microkernel estático con inyección de dependencias",
+    "descripcion": "Kernel con Registry, Dispatch (worker pool acotado) y circuit breaker de autenticación; plugins inyectados con kernel.WithPlugins, sin init(). Dominio puro en internal/domain (45c4083). Base para la futura extensión de navegador y la GUI de escritorio.",
+    "fecha": "2026-09-04",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "45c4083",
+    "version": "v1.1.0",
+    "evidencia": ["internal/kernel", "internal/domain", "internal/plugins/moodle", "internal/plugins/demo", "docs/architecture.md", "docs/adr/002-arquitectura-modular-y-dominio.md"]
+  },
+  {
+    "id": "TR-003",
+    "titulo": "Logo / splash con vaca (marca MooFetch)",
+    "descripcion": "Pantalla splash con banner de vaca (e2c6510); identidad MooFetch aplicada al banner, formulario y tarjeta de progreso en el rebranding (68ef9f3). Respeta NO_COLOR. Nota: en el código el splash aparece DESPUÉS del paso de campus/consentimiento (ver TR-018).",
+    "fecha": "2026-09-03",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "e2c6510",
+    "version": "v1.1.0",
+    "evidencia": ["internal/tui/splash.go", "internal/tui/form.go", "docs/adr/004-rebranding-moofetch.md"]
+  },
+  {
+    "id": "TR-004",
+    "titulo": "Selección de campus (UFRO: campusvirtual.ufro.cl)",
+    "descripcion": "Paso interactivo «¿Cuál es tu universidad?» con catálogo (ufro -> campusvirtual.ufro.cl) y opción «Otra…» con validación de dominio. Flags --uni y --domain para modo headless.",
+    "fecha": "2026-09-29",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "68ef9f3",
+    "version": "v1.1.0",
+    "evidencia": ["internal/tui/authstep.go", "internal/auth/auth.go", "cmd/moofetch/auth.go", "docs/adr/003-deteccion-automatica-de-token.md"]
+  },
+  {
+    "id": "TR-005",
+    "titulo": "Extracción automática de MoodleSession (Chrome/Chromium/Edge/Opera/Brave vía kooky)",
+    "descripcion": "Adaptador kooky que lee la cookie MoodleSession de los navegadores locales, con consentimiento previo y fallback a pegado manual. Implementado en código y cubierto por tests con proveedor falso; la verificación manual por navegador está pendiente (TR-007 a TR-010). Firefox no funciona con este adaptador (ver TR-006).",
+    "fecha": "2026-09-29",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "68ef9f3",
+    "version": "v1.1.0",
+    "evidencia": ["internal/auth/kooky.go", "internal/auth/auth.go", "internal/tui/authstep.go", "docs/adr/003-deteccion-automatica-de-token.md", "docs/tasks/TASK-04-token-autodetect.md"]
+  },
+  {
+    "id": "TR-006",
+    "titulo": "Firefox: cookie de sesión desde sessionstore-backups",
+    "descripcion": "Firefox no guarda MoodleSession en cookies.sqlite (es una cookie de sesión); vive en sessionstore-backups/recovery.jsonlz4 (también recovery.baklz4 y previous.jsonlz4). El arreglo lee esos archivos y acepta nombres MoodleSession<sufijo>. Existe solo en la rama fix/cookie-autodetect, aún sin fusionar.",
+    "fecha": "2026-09-29",
+    "estado": "en proceso",
+    "rama": "fix/cookie-autodetect",
+    "commit": "7c20081",
+    "version": null,
+    "evidencia": ["internal/auth/firefox.go (solo en rama fix/cookie-autodetect)", "internal/auth/kooky.go (modificado en la rama)", "docs/adr/003-deteccion-automatica-de-token.md"]
+  },
+  {
+    "id": "TR-007",
+    "titulo": "Verificación manual de autodetección en Chrome",
+    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Google Chrome (Linux/Windows/macOS). Sin verificación manual hasta ahora.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/tasks/TASK-08-verificacion-manual-navegadores.md", "docs/adr/003-deteccion-automatica-de-token.md"]
+  },
+  {
+    "id": "TR-008",
+    "titulo": "Verificación manual de autodetección en Edge",
+    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Microsoft Edge. Sin verificación manual hasta ahora.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/tasks/TASK-08-verificacion-manual-navegadores.md", "docs/adr/003-deteccion-automatica-de-token.md"]
+  },
+  {
+    "id": "TR-009",
+    "titulo": "Verificación manual de autodetección en Opera",
+    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Opera. Sin verificación manual hasta ahora.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/tasks/TASK-08-verificacion-manual-navegadores.md", "docs/adr/003-deteccion-automatica-de-token.md"]
+  },
+  {
+    "id": "TR-010",
+    "titulo": "Verificación manual de autodetección en Safari (solo macOS)",
+    "descripcion": "Safari solo existe en macOS: la verificación requiere un equipo macOS. kooky incluye un lector de Safari, pero no se ha probado.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/tasks/TASK-08-verificacion-manual-navegadores.md", "docs/adr/003-deteccion-automatica-de-token.md"]
+  },
+  {
+    "id": "TR-011",
+    "titulo": "Pegado de enlaces Moodle: TUI, CleanURLs, -f/-u y stdin",
+    "descripcion": "El formulario TUI acepta varias URLs pegadas y las normaliza con CleanURLs (CRLF, duplicados, esquemas no http). En modo directo: run -u (coma), run -f (archivo) o tubería por stdin.",
+    "fecha": "2026-09-04",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "6605513",
+    "version": "v1.1.0",
+    "evidencia": ["internal/tui/form.go", "cmd/moofetch/run.go", "internal/tui/headless.go"]
+  },
+  {
+    "id": "TR-012",
+    "titulo": "Modo headless y códigos de salida POSIX",
+    "descripcion": "Detección TTY/pipe, progreso a stderr y códigos 0, 1, 2, 77 y 130 (ADR 001). Mapeo centralizado en exitcode.go (5e2c94f).",
+    "fecha": "2026-09-04",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "0120fa8",
+    "version": "v1.1.0",
+    "evidencia": ["cmd/moofetch/exitcode.go", "internal/tui/headless.go", "docs/adr/001-interfaz-headless-posix.md"]
+  },
+  {
+    "id": "TR-013",
+    "titulo": "Cobertura de tests superior al 80% por paquete",
+    "descripcion": "Todos los paquetes por sobre 80% y total 93.1% (TASK-06). Pruebas sin TTY, red ni navegadores reales.",
+    "fecha": "2026-09-29",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "0bd7ed9",
+    "version": "v1.1.0",
+    "evidencia": ["docs/tasks/TASK-06-coverage-80.md", "cmd/moofetch/helpers_test.go"]
+  },
+  {
+    "id": "TR-014",
+    "titulo": "CI de PR y release con GoReleaser",
+    "descripcion": "ci.yml (gofmt, tests con -race y cobertura, cross-compile) en PR a main y develop; release.yml con GoReleaser al empujar tags v*. Nota: release.yml usa version \"~> v2\" en main y latest en develop hasta que main se fusione en develop.",
+    "fecha": "2026-09-03",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": "fbfe103",
+    "version": "v1.0.0",
+    "evidencia": [".github/workflows/ci.yml", ".github/workflows/release.yml", ".goreleaser.yaml", "docs/workflow.md"]
+  },
+  {
+    "id": "TR-015",
+    "titulo": "golangci-lint en CI",
+    "descripcion": "El linter (.golangci.yml) hoy solo se ejecuta en local; falta añadirlo a ci.yml.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": [".golangci.yml", ".github/workflows/ci.yml", "docs/workflow.md"]
+  },
+  {
+    "id": "TR-016",
+    "titulo": "Extensión de navegador",
+    "descripcion": "Extensión (WebExtensions / Chrome MV3) que capture enlaces y sesión y los envíe a un daemon (cmd/moofetch-daemon) por stdin JSON o WebSocket, reutilizando kernel y dominio.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/architecture.md"]
+  },
+  {
+    "id": "TR-017",
+    "titulo": "Aplicación de escritorio (GUI)",
+    "descripcion": "GUI multiplataforma (Wails según docs/architecture.md) que reutilice el núcleo (kernel y dominio) sin cambios.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/architecture.md"]
+  },
+  {
+    "id": "TR-018",
+    "titulo": "Orden del flujo interactivo: logo antes del campus",
+    "descripcion": "En el código el paso de campus/consentimiento (internal/tui/authstep.go) corre ANTES del splash/logo (form.go, runForm). Decisión del dueño (2026-10-19): logo primero. Implementación en proceso en TASK-09; aún no hay rama ni commit.",
+    "fecha": null,
+    "estado": "en proceso",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["internal/tui/authstep.go", "internal/tui/form.go", "docs/tasks/TASK-09-orden-logo-campus.md"]
+  }
+]

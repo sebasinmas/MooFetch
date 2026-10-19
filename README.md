@@ -5,7 +5,7 @@
 **Descargas masivas, concurrentes y resilientes para Campus Virtual UFRO y plataformas Moodle.**  
 *De un script interactivo a un motor CLI de grado empresarial para pipelines Unix, extensiones y GUIs.*
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
 [![Version](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/MooFetch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![POSIX Compliant](https://img.shields.io/badge/POSIX-Sysexits_Compliant-orange?style=for-the-badge&logo=linux)](https://pubs.opengroup.org/)
@@ -56,7 +56,7 @@ sudo mv moofetch /usr/local/bin/
 ```
 
 ### Opción 2: Compilación con Inyección de Versión (`ldflags`)
-Si dispones del toolchain de Go (1.21 o superior):
+Si dispones del toolchain de Go (1.24 o superior):
 
 ```bash
 # Clonar repositorio
@@ -65,7 +65,7 @@ cd MooFetch
 
 # Compilar binario optimizado inyectando versión y commit
 go build -ldflags "-s -w \
-  -X main.Version=1.2.0 \
+  -X main.Version=1.1.0 \
   -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
   -X main.BuildDate=$(date +%Y-%m-%d)" \
   -o bin/moofetch ./cmd/moofetch
@@ -104,10 +104,16 @@ Ideal para el uso diario en terminales interactivas:
 moofetch
 ```
 
-Un asistente visual te guiará en dos pasos:
-1. Pega tu cookie de sesión (`MoodleSession=...`).
-2. Pega la lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
-3. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
+Flujo real del asistente, en el orden en que se ejecuta hoy:
+
+1. **Campus:** eliges tu universidad (por ejemplo `campusvirtual.ufro.cl`) o ingresas otro dominio, y aceptas o rechazas la detección automática de la cookie.
+2. **Splash:** se muestra el logo de MooFetch con la vaca 🐄 y se abre el formulario.
+3. **Formulario de dos pasos (cookie y URLs):**
+   1. Cookie de sesión (`MoodleSession=...`): la pegas a mano. Si la detección automática tuvo éxito, este paso se omite.
+   2. Lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
+4. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
+
+> **Nota:** en el código actual el paso de campus ocurre *antes* del logo. El orden decidido es logo primero, aún no implementado ([TR-018](docs/traceability.md)). La detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox está **en proceso** (rama `fix/cookie-autodetect`, sin fusionar) y la verificación manual en cada navegador sigue pendiente.
 
 ---
 
@@ -267,14 +273,20 @@ MooFetch está construido bajo el patrón **Microkernel Estático**:
 1. **Microkernel Desacoplado:** El registro de plugins se realiza por inyección de dependencias (`kernel.WithPlugins(...)`), eliminando funciones `init()` con efectos secundarios globales.
 2. **Worker Pool Bounded:** La concurrencia está estrictamente limitada por un semáforo de canales; no importa si procesas 5 o 5.000 URLs, nunca se crearán goroutines descontroladas.
 3. **Escrituras Atómicas:** Se garantiza la consistencia del sistema de archivos local frente a caídas de red o cortes de energía.
+4. **Extensible:** añadir un plugin solo requiere implementar `DownloaderPlugin` e inyectarlo con `kernel.WithPlugins` (ver [docs/architecture.md](docs/architecture.md), sección Extensibilidad).
 
 ---
 
 ## 🗺️ Roadmap
 
+El estado detallado de cada funcionalidad (fecha, rama, commit y versión) está en [docs/traceability.md](docs/traceability.md).
+
 - [x] **v1.1.0:** Migración a Cobra, soporte Headless, escrituras atómicas, Circuit Breaker y códigos POSIX.
+- [x] **Selección de campus y autodetección de la cookie** (Chrome/Chromium/Edge/Opera/Brave vía kooky; verificación manual pendiente).
+- [ ] **Autodetección en Firefox:** *en proceso* en la rama `fix/cookie-autodetect` (sin fusionar).
+- [ ] **Verificación manual por navegador:** Chrome, Edge, Opera y Safari (solo macOS).
 - [ ] **Extensión de Navegador (Chrome MV3):** Captura de enlaces y sesión con un solo clic desde el Campus Virtual.
-- [ ] **Aplicación de Escritorio Multiplataforma (Tauri / Wails):** GUI visual que interactúa con este binario como subproceso POSIX.
+- [ ] **Aplicación de Escritorio Multiplataforma (Tauri / Wails):** GUI visual que reutiliza el núcleo (kernel y dominio) de este proyecto.
 - [ ] **Soporte para Carpetas Moodle (`mod/folder`):** Extracción recursiva de archivos comprimidos o directorios completos.
 - [ ] **Plugins para Plataformas Adicionales:** Módulos para Canvas LMS y Blackboard Learn.
 - [ ] **Distribución en Gestores de Paquetes:** Soporte oficial para `brew`, `scoop`, `winget` y AUR.

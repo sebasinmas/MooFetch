@@ -1,5 +1,7 @@
 # ADR 002: Desacoplamiento de Dominio, Microkernel Estático y Patrón Consumer-Driven para Plugins
 
+> **Nota histórica:** este ADR se escribió antes del rebranding (ver [ADR 004](004-rebranding-moofetch.md)). Los nombres `godownloader`, `cmd/godownloader` y `.godownload.part` son históricos; hoy el producto es **MooFetch**, el entrypoint es `cmd/moofetch` y el sufijo temporal es `.moofetch.part`.
+
 - **Estado:** Aceptado (Accepted)
 - **Fecha:** 2026-09-04
 - **Autores:** Equipo de Arquitectura e Ingeniería de GoDownloader

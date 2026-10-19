@@ -13,3 +13,5 @@
 
 ## DoD
 Con sesión iniciada en un navegador local, `moofetch` obtiene la cookie sin pegarla; sin navegador/cookie cae al pegado manual; la cookie no aparece en logs.
+
+> **Alcance real de este «hecho»:** la tarea está implementada en código y verificada **solo por tests con un proveedor de cookies falso**. La verificación manual contra el campus real no se ha hecho en ningún navegador (Chrome, Edge, Opera, Safari: [TASK-08](TASK-08-verificacion-manual-navegadores.md)). En Firefox la cookie de sesión no se encuentra con este código; el arreglo está en la rama `fix/cookie-autodetect`, sin fusionar ([TASK-07](TASK-07-firefox-session-store.md)). Por eso el DoD («con sesión iniciada en un navegador local, `moofetch` obtiene la cookie sin pegarla») está **sin comprobar manualmente**.
