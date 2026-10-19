@@ -207,5 +207,16 @@
     "commit": null,
     "version": null,
     "evidencia": ["docs/tasks/TASK-07-firefox-session-store.md"]
+  },
+  {
+    "id": "TR-020",
+    "titulo": "Tests de integración de cookie y descargas rotas; endurecimiento de descargas",
+    "descripcion": "Tests de integración del formato de cookie de extremo a extremo (comillas, prefijos, sufijos, vacío) y de descargas rotas/interrumpidas con .part. Corrige: una redescarga fallida ya no borra el archivo previo, una cookie con nombre pero sin valor se trata como vacía (exit 2) y un cuerpo sin %PDF- para un .pdf se rechaza con ErrNotPDF.",
+    "fecha": "2026-10-19",
+    "estado": "implementado",
+    "rama": "develop",
+    "commit": null,
+    "version": null,
+    "evidencia": ["cmd/moofetch/cookie_integration_test.go", "internal/plugins/moodle/integration_test.go", "internal/kernel/dispatch_moodle_integration_test.go", "internal/auth/cookie_format_test.go", "internal/plugins/moodle/moodle.go", "internal/tui/form.go"]
   }
 ]

@@ -38,6 +38,7 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-017 | Aplicación de escritorio (GUI) | — | por implementar | — | — |
 | TR-018 | Orden del flujo interactivo: logo antes del campus | — | en proceso | — | — |
 | TR-019 | Verificación manual de autodetección en Firefox (session store) | — | por implementar | — | — |
+| TR-020 | Tests de integración de cookie y descargas rotas; endurecimiento de descargas | 2026-10-19 | implementado | `develop` | — |
 <!-- END TABLE -->
 
 ## Notas
