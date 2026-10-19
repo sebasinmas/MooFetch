@@ -237,6 +237,7 @@ func runForm(ctrl *FormController) (*FormData, error) {
 // It trims whitespace, removes surrounding quotes, strips leading "Cookie:" prefix,
 // handles colon separators (e.g. MoodleSession:"..."), eliminates duplicate prefixes,
 // and if a raw token without key=value is supplied, prefixes "MoodleSession=".
+// A name without a value ("MoodleSession=") yields an empty string.
 func NormalizeCookie(raw string) string {
 	c := strings.TrimSpace(raw)
 	c = strings.Trim(c, `"' `)
@@ -265,6 +266,11 @@ func NormalizeCookie(raw string) string {
 			for strings.HasPrefix(strings.ToLower(val), "moodlesession=") || strings.HasPrefix(strings.ToLower(val), "moodlesession:") {
 				val = strings.Trim(strings.TrimSpace(val[14:]), `"' `)
 			}
+		}
+		if val == "" {
+			// A name without a value (e.g. "MoodleSession=") carries no
+			// credential; treat it like empty input.
+			return ""
 		}
 		c = name + "=" + val
 	} else if c != "" {
