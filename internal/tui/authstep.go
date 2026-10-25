@@ -26,6 +26,10 @@ type AuthOptions struct {
 	// course page, Scan lists its resources and they pick what to download.
 	// pageURL is always on the chosen campus. Pasting links stays as a fallback.
 	Scan func(ctx context.Context, pageURL, cookie string) ([]Resource, error)
+	// Demo marks a guided showcase run: screens carry a [MODO DEMO] tag and
+	// the consent screen says that no browser is read. Detect and Scan are
+	// expected to be simulated by the caller.
+	Demo bool
 	// Domain, when set (from --uni/--domain), skips the university question.
 	Domain string
 	// Notice receives status messages (defaults to discarding).
@@ -35,6 +39,18 @@ type AuthOptions struct {
 const otherDomain = "\x00other"
 
 // consentText is shown before any browser store is read.
+const demoConsentText = "MODO DEMO: no se lee ningún navegador ni se hace ninguna petición.\nSe usará una cookie simulada para mostrar cómo funciona el asistente."
+
+// demoTag is appended to screen titles in demo mode.
+const demoTag = " [MODO DEMO]"
+
+func tagged(title string, demo bool) string {
+	if demo {
+		return title + demoTag
+	}
+	return title
+}
+
 const consentText = "MooFetch leerá SOLO la cookie MoodleSession de tu campus en tus navegadores (Chrome, Chromium, Edge, Firefox, Opera, Brave y Safari en macOS).\nSe usa solo en memoria: no se guarda en disco ni se registra."
 
 // RunInteractiveFormWithAuth shows the splash, then asks for the campus and the
@@ -42,7 +58,8 @@ const consentText = "MooFetch leerá SOLO la cookie MoodleSession de tu campus e
 // runs the cookie/URLs form. Any failure or refusal falls back to manual
 // cookie pasting.
 func RunInteractiveFormWithAuth(ctx context.Context, opts *AuthOptions, isDemo bool) (*FormData, error) {
-	if opts == nil || opts.Detect == nil || isDemo {
+	// Demo without a simulated scan keeps the plain two-step demo form.
+	if opts == nil || opts.Detect == nil || (isDemo && opts.Scan == nil) {
 		return RunInteractiveForm(isDemo)
 	}
 	notice := opts.Notice
@@ -67,7 +84,7 @@ func RunInteractiveFormWithAuth(ctx context.Context, opts *AuthOptions, isDemo b
 		}
 	}
 	if opts.Scan != nil {
-		return runScanFlow(ctx, opts, domain, cookie, notice)
+		return runScanFlow(ctx, opts, domain, cookie, notice, isDemo)
 	}
 	// The splash was already shown before the campus question.
 	return runForm(newInteractiveForm(false, cookie), false)
@@ -109,7 +126,7 @@ func buildAuthGroups(opts *AuthOptions, domain string, choice, custom *string, c
 		options = append(options, huh.NewOption("Otra…", otherDomain))
 		groups = append(groups,
 			huh.NewGroup(huh.NewSelect[string]().
-				Title("🐄 ¿Cuál es tu universidad?").
+				Title(tagged("🐄 ¿Cuál es tu universidad?", opts.Demo)).
 				Options(options...).
 				Value(choice)),
 			huh.NewGroup(huh.NewInput().
@@ -124,9 +141,13 @@ func buildAuthGroups(opts *AuthOptions, domain string, choice, custom *string, c
 					return verr
 				})).WithHideFunc(func() bool { return *choice != otherDomain }))
 	}
+	consentDesc := consentText
+	if opts.Demo {
+		consentDesc = demoConsentText
+	}
 	return append(groups, huh.NewGroup(huh.NewConfirm().
-		Title("¿Detectar la cookie automáticamente desde tu navegador?").
-		Description(consentText).
+		Title(tagged("¿Detectar la cookie automáticamente desde tu navegador?", opts.Demo)).
+		Description(consentDesc).
 		Affirmative("Sí, detectar").
 		Negative("No, pegar manualmente").
 		Value(consent)))

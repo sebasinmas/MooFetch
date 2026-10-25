@@ -30,7 +30,7 @@ const maxListHeight = 16
 // scans it, and lets the user untick what they do not want. Every resource
 // starts selected. Pasting links by hand stays available as a fallback (empty
 // page URL, or after a failed scan).
-func runScanFlow(ctx context.Context, opts *AuthOptions, campus, cookie string, notice io.Writer) (*FormData, error) {
+func runScanFlow(ctx context.Context, opts *AuthOptions, campus, cookie string, notice io.Writer, demo bool) (*FormData, error) {
 	pageURL := ""
 	for {
 		if cookie == "" {
@@ -42,14 +42,14 @@ func runScanFlow(ctx context.Context, opts *AuthOptions, campus, cookie string, 
 		}
 
 		var err error
-		if pageURL, err = askPageURL(campus, pageURL); err != nil {
+		if pageURL, err = askPageURL(campus, pageURL, demo); err != nil {
 			return nil, err
 		}
 		if pageURL == "" {
-			return runForm(newInteractiveForm(false, cookie), false)
+			return runForm(newInteractiveForm(demo, cookie), false)
 		}
 
-		picked, authFailed, err := scanAndPick(ctx, opts, pageURL, cookie, notice)
+		picked, authFailed, err := scanAndPick(ctx, opts, pageURL, cookie, notice, demo)
 		if err != nil {
 			return nil, err
 		}
@@ -65,7 +65,7 @@ func runScanFlow(ctx context.Context, opts *AuthOptions, campus, cookie string, 
 			return nil, err
 		}
 		if manual {
-			return runForm(newInteractiveForm(false, cookie), false)
+			return runForm(newInteractiveForm(demo, cookie), false)
 		}
 	}
 }
@@ -73,7 +73,7 @@ func runScanFlow(ctx context.Context, opts *AuthOptions, campus, cookie string, 
 // scanAndPick scans pageURL and lets the user choose. A nil picked with a nil
 // error means the attempt failed and the user was told why (authFailed marks an
 // expired session).
-func scanAndPick(ctx context.Context, opts *AuthOptions, pageURL, cookie string, notice io.Writer) (picked []string, authFailed bool, err error) {
+func scanAndPick(ctx context.Context, opts *AuthOptions, pageURL, cookie string, notice io.Writer, demo bool) (picked []string, authFailed bool, err error) {
 	found, serr := scanWithSpinner(ctx, opts, pageURL, cookie)
 	if errors.Is(serr, ErrFormAborted) {
 		return nil, false, serr
@@ -83,7 +83,7 @@ func scanAndPick(ctx context.Context, opts *AuthOptions, pageURL, cookie string,
 	}
 	switch {
 	case serr == nil && len(found) > 0:
-		picked, err = selectResources(found)
+		picked, err = selectResources(found, demo)
 		return picked, false, err
 	case serr == nil:
 		_, _ = fmt.Fprintln(notice, "No se encontraron recursos descargables en esa página.")
@@ -120,7 +120,7 @@ func askCookie() (string, error) {
 
 // askPageURL asks for the course page to scan. Empty means "I will paste the
 // links myself". The host must be the chosen campus: the cookie is sent there.
-func askPageURL(campus, prefill string) (string, error) {
+func askPageURL(campus, prefill string, demo bool) (string, error) {
 	pageURL := prefill
 	placeholder := "https://campus.miuniversidad.cl/course/view.php?id=123"
 	if campus != "" {
@@ -128,8 +128,8 @@ func askPageURL(campus, prefill string) (string, error) {
 	}
 	form := newForm(huh.NewGroup(
 		huh.NewInput().
-			Title("🐄 MooFetch • ¿Qué página del curso quieres leer?").
-			Description("Pega la URL del curso o de una sección. Déjalo vacío para pegar los enlaces a mano.").
+			Title(tagged("🐄 MooFetch • ¿Qué página del curso quieres leer?", demo)).
+			Description(pageURLHelp(demo)).
 			Placeholder(placeholder).
 			Value(&pageURL).
 			Validate(func(s string) error { return validatePageURL(s, campus) }),
@@ -138,6 +138,13 @@ func askPageURL(campus, prefill string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(pageURL), nil
+}
+
+func pageURLHelp(demo bool) string {
+	if demo {
+		return "Escribe cualquier URL de tu campus: en modo demo no se hace ninguna petición."
+	}
+	return "Pega la URL del curso o de una sección. Déjalo vacío para pegar los enlaces a mano."
 }
 
 func validatePageURL(raw, campus string) error {
@@ -177,7 +184,7 @@ func askRetryOrManual() (manual bool, err error) {
 
 // selectResources shows the resource names (never the links) with everything
 // selected; the user unticks what they do not want.
-func selectResources(found []Resource) ([]string, error) {
+func selectResources(found []Resource, demo bool) ([]string, error) {
 	labels := resourceLabels(found)
 	options := make([]huh.Option[string], len(found))
 	for i, r := range found {
@@ -187,7 +194,7 @@ func selectResources(found []Resource) ([]string, error) {
 	var picked []string
 	form := newForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
-			Title(fmt.Sprintf("🐄 MooFetch • Elige qué descargar (%d recursos)", len(found))).
+			Title(tagged(fmt.Sprintf("🐄 MooFetch • Elige qué descargar (%d recursos)", len(found)), demo)).
 			Description("Todo viene marcado: desmarca lo que no quieras.").
 			Options(options...).
 			Height(min(len(found), maxListHeight) + 4).
@@ -251,6 +258,7 @@ type scanning struct {
 	found   []Resource
 	err     error
 	aborted bool
+	done    bool // finished or cancelled: render nothing so no spinner line is left behind
 	cancel  context.CancelFunc
 }
 
@@ -265,10 +273,12 @@ func (m *scanning) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case scanDoneMsg:
 		m.found, m.err = msg.found, msg.err
+		m.done = true
 		return m, tea.Quit
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
 			m.aborted = true
+			m.done = true
 			m.cancel()
 			return m, tea.Quit
 		}
@@ -280,7 +290,12 @@ func (m *scanning) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *scanning) View() string { return m.spin.View() + " " + m.title + "\n" }
+func (m *scanning) View() string {
+	if m.done {
+		return ""
+	}
+	return m.spin.View() + " " + m.title + "\n"
+}
 
 // scanWithSpinner runs opts.Scan in the background while showing a spinner.
 // Ctrl+C cancels the scan and returns ErrFormAborted.

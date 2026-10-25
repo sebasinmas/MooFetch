@@ -28,6 +28,18 @@ Las plataformas LMS implementan capas de autenticación con cookies temporales y
 
 En su versión **v2.0.0**, el asistente deja de pedirte enlaces: **lee la página de tu curso y te deja elegir por nombre qué descargar**. Sigue siendo una **herramienta CLI de grado industrial construida sobre Cobra**, diseñada para operar indistintamente en consolas interactivas o como núcleo de automatización (*headless engine*). Inyecta credenciales en memoria, sortea redirecciones HTTP 303, aísla fallos de sesión con un *Circuit Breaker* inteligente y garantiza la integridad de tu disco mediante escrituras atómicas.
 
+### 🎬 Míralo en acción
+
+<div align="center">
+  <img src="docs/assets/demo.gif" alt="MooFetch: logo, elección de campus, lectura del curso, selección de recursos por nombre y descargas concurrentes" width="880">
+</div>
+
+El video es una simulación (`moofetch --demo`): no usa la red, no lee tu navegador ni necesita una cookie real, pero muestra exactamente las mismas pantallas. Pruébalo tú mismo:
+
+```bash
+moofetch --demo -o /tmp/moofetch-demo
+```
+
 ---
 
 ## ✨ Características Principales
@@ -239,7 +251,7 @@ Salida:
   -l, --log ARCHIVO    archivo de registro de depuración (ej. debug.txt)
 
 Otros:
-  -d, --demo           simula las descargas, sin usar la red
+  -d, --demo           simula el asistente y las descargas, sin usar la red
   -h, --help           muestra esta ayuda
   -v, --version        muestra la versión
 ```
@@ -257,7 +269,7 @@ La cookie de sesión se busca en este orden: `-k/--cookie`, detección en el nav
 | Sesión | `--domain` | | `""` | Dominio de tu Moodle (ej. `campus.miuniversidad.cl`). Gana sobre `--uni`. |
 | Salida | `--headless` | | `false` | Sin interfaz: progreso plano a `stderr`. |
 | Salida | `--log` | `-l` | `""` | Archivo de diagnóstico estructurado con `log/slog`. |
-| Otros | `--demo` | `-d` | `false` | Simulación local para presentaciones y pruebas de carga. |
+| Otros | `--demo` | `-d` | `false` | Recorre el asistente completo con una cookie y un curso simulados (sin red ni navegador) y descarga archivos de prueba. |
 | Otros | `--version` | `-v` | | Imprime la versión del binario. |
 
 Los alias ocultos `--plain` (= `--headless`) y `--logger` (= `--log`) siguen funcionando para no romper scripts existentes.

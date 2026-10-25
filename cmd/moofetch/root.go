@@ -128,7 +128,7 @@ func init() {
 	pf.StringVarP(&flagLogPath, "log", "l", "", "archivo de registro de depuración (ej. debug.txt)")
 
 	// Otros
-	pf.BoolVarP(&flagDemo, "demo", "d", false, "simula las descargas, sin usar la red")
+	pf.BoolVarP(&flagDemo, "demo", "d", false, "simula el asistente y las descargas, sin usar la red")
 
 	// Hidden aliases kept for backward compatibility with existing scripts.
 	pf.StringVar(&flagLogPath, "logger", "", "alias de --log")
