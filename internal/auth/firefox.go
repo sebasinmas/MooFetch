@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -84,68 +86,122 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-// firefoxExtraCookies yields cookies from Firefox profiles that kooky does not
-// cover: cookies.sqlite in newer folders, and session cookies from the session
-// backup. Read errors are skipped; a missing file is not an error here.
-func firefoxExtraCookies(ctx context.Context, filters ...kooky.Filter) kooky.CookieSeq {
-	return func(yield func(*kooky.Cookie, error) bool) {
-		for _, dir := range firefoxProfileDirs() {
-			if ctx.Err() != nil {
-				return
-			}
-			for _, c := range profileCookies(dir, filters) {
-				if !yield(c, nil) {
-					return
-				}
-			}
+// firefoxProfile is one Firefox profile folder read by MooFetch itself:
+// cookies.sqlite and the session backup, each with the resilient file
+// strategies (shared read, then temporary copy). It implements storeReader.
+type firefoxProfile struct{ dir string }
+
+func (firefoxProfile) Browser() string   { return "firefox" }
+func (p firefoxProfile) Profile() string { return filepath.Base(p.dir) }
+func (firefoxProfile) Close() error      { return nil }
+
+// profileRead accumulates the partial results of one profile.
+type profileRead struct {
+	cookies  []*kooky.Cookie
+	strategy Strategy
+	err      error
+}
+
+// add merges one file's result. A missing file is normal (not every profile
+// has every file) and is ignored.
+func (p *profileRead) add(cookies []*kooky.Cookie, strategy Strategy, err error) {
+	p.cookies = append(p.cookies, cookies...)
+	if err != nil {
+		if p.err == nil && !errors.Is(err, fs.ErrNotExist) {
+			p.err = err
 		}
+		return
+	}
+	if strategy == StrategyCopy || p.strategy == StrategyNone {
+		p.strategy = strategy
 	}
 }
 
-// profileCookies returns the matching cookies of one profile: cookies.sqlite
-// first, then the session backup.
-func profileCookies(dir string, filters []kooky.Filter) []*kooky.Cookie {
-	var out []*kooky.Cookie
-	sqlite := filepath.Join(dir, "cookies.sqlite")
+// Read returns the matching cookies of the profile: cookies.sqlite first,
+// then the session backups. Errors are reported, not swallowed; they only
+// matter to the caller when no cookie was found.
+func (p firefoxProfile) Read(ctx context.Context, filter kooky.Filter) ([]*kooky.Cookie, Strategy, error) {
+	res := profileRead{strategy: StrategyNone}
+	sqlite := filepath.Join(p.dir, "cookies.sqlite")
 	if fileExists(sqlite) {
-		for c, err := range firefox.TraverseCookies(sqlite, filters...) {
-			if err == nil && c != nil {
-				out = append(out, c)
-			}
-		}
+		res.add(readSQLiteResilient(ctx, sqlite, filter))
 	}
-	for _, c := range sessionStoreCookies(dir) {
-		if matchesAll(c, filters) {
+	for _, name := range sessionFiles {
+		path := filepath.Join(p.dir, "sessionstore-backups", name)
+		if ctx.Err() != nil {
+			return res.cookies, res.strategy, ctx.Err()
+		}
+		res.add(readSessionFile(ctx, path, filter))
+	}
+	return res.cookies, res.strategy, res.err
+}
+
+// readSessionFile reads one session backup. A missing file returns
+// fs.ErrNotExist (the caller ignores it).
+func readSessionFile(ctx context.Context, path string, filter kooky.Filter) ([]*kooky.Cookie, Strategy, error) {
+	raw, strategy, err := readFileResilient(ctx, path)
+	if err != nil {
+		return nil, strategy, err
+	}
+	data, err := decodeMozLz4(raw)
+	if err != nil {
+		return nil, strategy, fmt.Errorf("sesión de Firefox ilegible (%s): %w", filepath.Base(path), err)
+	}
+	var out []*kooky.Cookie
+	for _, c := range parseSessionCookies(data, fileModTime(path)) {
+		if filter.Filter(c) {
 			out = append(out, c)
 		}
 	}
-	return out
+	return out, strategy, nil
 }
 
-func matchesAll(c *kooky.Cookie, filters []kooky.Filter) bool {
-	for _, f := range filters {
-		if !f.Filter(c) {
-			return false
-		}
-	}
-	return true
-}
-
-// sessionStoreCookies reads the session cookies saved in a profile's session backup.
-func sessionStoreCookies(profileDir string) []*kooky.Cookie {
+// readSQLite reads cookies.sqlite through kooky (which opens the file sharing
+// it with the browser on Windows). Tests replace it.
+var readSQLite = func(path string, filter kooky.Filter) ([]*kooky.Cookie, error) {
 	var out []*kooky.Cookie
-	for _, name := range sessionFiles {
-		raw, err := os.ReadFile(filepath.Join(profileDir, "sessionstore-backups", name))
+	var firstErr error
+	for c, err := range firefox.TraverseCookies(path, filter) {
 		if err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
 			continue
 		}
-		data, err := decodeMozLz4(raw)
-		if err != nil {
-			continue
+		if c != nil {
+			out = append(out, c)
 		}
-		out = append(out, parseSessionCookies(data, fileModTime(filepath.Join(profileDir, "sessionstore-backups", name)))...)
 	}
-	return out
+	if len(out) > 0 {
+		return out, nil
+	}
+	return nil, firstErr
+}
+
+// readSQLiteResilient reads cookies.sqlite: shared read with lock retries
+// first, then a temporary copy (with its -wal and -shm siblings).
+func readSQLiteResilient(ctx context.Context, path string, filter kooky.Filter) ([]*kooky.Cookie, Strategy, error) {
+	var cookies []*kooky.Cookie
+	err := retryOnLock(ctx, func() error {
+		var rerr error
+		cookies, rerr = readSQLite(path, filter)
+		return rerr
+	})
+	if err == nil {
+		return cookies, StrategyShared, nil
+	}
+	if !copyWorthTrying(ctx, err) {
+		return nil, StrategyNone, err
+	}
+	cerr := withTempCopy(ctx, path, []string{"-wal", "-shm"}, func(copyPath string) error {
+		var rerr error
+		cookies, rerr = readSQLite(copyPath, filter)
+		return rerr
+	})
+	if cerr != nil {
+		return nil, StrategyNone, fmt.Errorf("%w; copia temporal: %v", err, cerr)
+	}
+	return cookies, StrategyCopy, nil
 }
 
 func fileModTime(path string) time.Time {
