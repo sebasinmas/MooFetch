@@ -69,8 +69,8 @@ func runScan(ctx context.Context, p *moodle.Plugin, pageURL, cookie string, opts
 }
 
 func init() {
-	scanCmd.Flags().DurationVar(&flagScanDelay, "delay", 0, "pausa entre peticiones (por defecto 1.5s)")
-	scanCmd.Flags().IntVar(&flagScanMaxPages, "max-pages", 0, "máximo de páginas a pedir (por defecto 30)")
+	scanCmd.Flags().DurationVar(&flagScanDelay, "delay", 1500*time.Millisecond, "pausa entre peticiones")
+	scanCmd.Flags().IntVar(&flagScanMaxPages, "max-pages", 30, "máximo de páginas a pedir")
 	setFlagGroup(scanCmd.Flags(), groupDownload, "delay", "max-pages")
 	rootCmd.AddCommand(scanCmd)
 }
