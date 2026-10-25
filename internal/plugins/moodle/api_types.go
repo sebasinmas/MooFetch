@@ -56,7 +56,11 @@ type APIFile struct {
 	Name string
 	// FileName is the real file name on the server.
 	FileName string
-	// SubDir is the folder path inside a "folder" activity ("" for resources).
+	// SubDir is "" for resources. For files of a "folder" activity it is the
+	// folder's module name followed by the file's filepath without the
+	// leading/trailing slashes: filepath "/" gives "<module>", "/a/b/" gives
+	// "<module>/a/b". A slash or backslash inside the module name becomes
+	// "-" and "." / ".." segments are dropped.
 	SubDir string
 	// URL is the download URL WITHOUT the token. The token travels in
 	// domain.Task.Token.
