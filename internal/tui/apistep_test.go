@@ -93,6 +93,9 @@ func TestAPIFlow_HappyPath(t *testing.T) {
 		{URL: "https://campus.uni.cl/webservice/pluginfile.php/3/Guia.pdf", SubDir: "Programación I/01 - Tema 1_ Intro/Ejercicios/Resueltos/"},
 		{URL: "https://campus.uni.cl/webservice/pluginfile.php/9/Apunte.pdf", SubDir: "Física/00 - General/"},
 	}
+	if data.Campus == "" {
+		t.Error("the API route must report the campus the token belongs to")
+	}
 	if !reflect.DeepEqual(data.Items, want) {
 		t.Errorf("Items = %+v, want %+v", data.Items, want)
 	}

@@ -239,7 +239,7 @@ func apiBrowse(ctx context.Context, opts *AuthOptions, campus, token string, not
 		for i, it := range items {
 			urls[i] = it.URL
 		}
-		return &FormData{Token: token, Items: items, URLs: urls}, apiDone, nil
+		return &FormData{Token: token, Items: items, URLs: urls, Campus: campus}, apiDone, nil
 	}
 }
 
