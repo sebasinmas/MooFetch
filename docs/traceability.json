@@ -284,5 +284,16 @@
     "commit": "57549aa",
     "version": null,
     "evidencia": ["cmd/moofetch/demo.go", "cmd/moofetch/demo_test.go", "internal/tui/authstep.go", "internal/tui/scanstep.go", "docs/demo/demo.tape", "docs/assets/demo.gif", "README.md"]
+  },
+  {
+    "id": "TR-027",
+    "titulo": "README orientado a nuevos usuarios, con demo arriba y badges de estado",
+    "descripcion": "README reorganizado para quien llega por primera vez: título, badges dinámicos (CI de main, última release, descargas, versión de Go, licencia) y el GIF de demo arriba; por qué usarlo (incluido cargar todo el curso en NotebookLM); instalación con guía amd64/arm64 por sistema; uso paso a paso; pipelines, referencia, privacidad y roadmap; y al final lo técnico (compilar, arquitectura). ci.yml ahora también corre en push a main para que el badge de CI muestre un estado real.",
+    "fecha": "2026-10-25",
+    "estado": "en proceso",
+    "rama": "feature/demo-vhs",
+    "commit": "bc7b0b3",
+    "version": null,
+    "evidencia": ["README.md", ".github/workflows/ci.yml", "docs/workflow.md", "docs/assets/demo.gif"]
   }
 ]

@@ -37,7 +37,7 @@ go test -race ./...
 ```
 
 ## 2. CI (`.github/workflows/`)
-Se dispara en **pull requests** hacia `main` y `develop` (no en push directo). Jobs de `ci.yml`:
+Se dispara en **pull requests** hacia `main` y `develop`, y en los **push a `main`** (así el badge de CI del README refleja el estado real de `main`). Jobs de `ci.yml`:
 
 - `lint`: formato con `gofmt`.
 - `golangci-lint`: análisis estático con la config de `.golangci.yml` (formato v2; la acción es `golangci-lint-action@v7`). Ya corre en CI; cierra el pendiente TR-015 de [traceability.md](traceability.md) una vez fusionado.
