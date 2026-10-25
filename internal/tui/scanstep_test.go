@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"errors"
+	tea "github.com/charmbracelet/bubbletea"
 	"reflect"
 	"strings"
 	"testing"
@@ -260,5 +261,60 @@ func TestResourceLabels(t *testing.T) {
 		if strings.Contains(l, "http") {
 			t.Errorf("label %q must not show a link", l)
 		}
+	}
+}
+
+func TestScanFlow_DemoShowsTaggedScreensAndSimulatedScan(t *testing.T) {
+	var notice strings.Builder
+	var calls []scanCall
+	opts := scanAuthOptions(&notice, &calls, func(int) ([]Resource, error) { return sampleResources, nil })
+	opts.Demo = true
+	scriptedInputs(t, authKeys, pageKeys, []string{keyDown, keySpc, keyEnter})
+
+	// demo + Scan keeps the whole wizard (it no longer short-circuits to the plain form)
+	data, err := RunInteractiveFormWithAuth(context.Background(), opts, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{sampleResources[0].URL, sampleResources[2].URL}; !reflect.DeepEqual(data.URLs, want) {
+		t.Errorf("URLs = %v, want %v", data.URLs, want)
+	}
+	if len(calls) != 1 {
+		t.Errorf("simulated Scan should run once, got %d", len(calls))
+	}
+}
+
+func TestDemoTagsAndText(t *testing.T) {
+	if got := tagged("Titulo", true); got != "Titulo [MODO DEMO]" {
+		t.Errorf("tagged demo = %q", got)
+	}
+	if got := tagged("Titulo", false); got != "Titulo" {
+		t.Errorf("tagged normal = %q", got)
+	}
+	if !strings.Contains(pageURLHelp(true), "modo demo") || strings.Contains(pageURLHelp(false), "demo") {
+		t.Error("page URL help must mention demo only in demo mode")
+	}
+	var choice, custom string
+	consent := true
+	opts := &AuthOptions{Universities: []University{{Name: "U", Domain: "c.uni.cl"}}, Demo: true}
+	if got := len(buildAuthGroups(opts, "c.uni.cl", &choice, &custom, &consent)); got != 1 {
+		t.Errorf("preset domain should leave only the consent group, got %d", got)
+	}
+}
+
+func TestScanning_ViewIsEmptyOnceFinished(t *testing.T) {
+	m := &scanning{title: "Leyendo...", cancel: func() {}}
+	if m.View() == "" {
+		t.Fatal("spinner must render while scanning")
+	}
+	m.Update(scanDoneMsg{})
+	if got := m.View(); got != "" {
+		t.Errorf("a finished scan must leave nothing on screen, got %q", got)
+	}
+
+	m2 := &scanning{title: "Leyendo...", cancel: func() {}}
+	m2.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if !m2.aborted || m2.View() != "" {
+		t.Errorf("ctrl+c must abort and clear the view: aborted=%v view=%q", m2.aborted, m2.View())
 	}
 }
