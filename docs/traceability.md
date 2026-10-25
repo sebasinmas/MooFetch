@@ -45,7 +45,7 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-024 | Patchnotes legibles en GitHub: changelog agrupado y validación de títulos de PR | 2026-10-24 | implementado | `develop` / `e821d2f` | v2.0.0 |
 | TR-025 | Asistente interactivo: elegir recursos escaneados en vez de pegar enlaces | 2026-10-24 | implementado | `develop` / `51e556f` | v2.0.0 |
 | TR-026 | Modo --demo guiado y cinta VHS para el video del README | 2026-10-25 | en proceso | `feature/demo-vhs` / `57549aa` | — |
-| TR-027 | README orientado a nuevos usuarios, con demo arriba y badges de estado | 2026-10-25 | en proceso | `feature/demo-vhs` | — |
+| TR-027 | README orientado a nuevos usuarios, con demo arriba y badges de estado | 2026-10-25 | en proceso | `feature/demo-vhs` / `bc7b0b3` | — |
 <!-- END TABLE -->
 
 ## Notas

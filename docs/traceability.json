@@ -292,7 +292,7 @@
     "fecha": "2026-10-25",
     "estado": "en proceso",
     "rama": "feature/demo-vhs",
-    "commit": null,
+    "commit": "bc7b0b3",
     "version": null,
     "evidencia": ["README.md", ".github/workflows/ci.yml", "docs/workflow.md", "docs/assets/demo.gif"]
   }
