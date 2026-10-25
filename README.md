@@ -204,37 +204,63 @@ esac
 
 ## 🎛️ Referencia de Comandos y Banderas
 
+`moofetch --help` agrupa las banderas por tema y muestra al final los códigos de salida:
+
 ```text
 Uso:
   moofetch [flags]
-  moofetch [command]
+  moofetch <comando> [flags]
 
-Comandos Disponibles:
-  run         Ejecuta descargas en modo directo sin asistente interactivo
-  version     Muestra la versión instalada, commit y fecha de compilación
-  help        Ayuda sobre cualquier comando
+Comandos:
+  help        Muestra la ayuda de un comando
+  run         Descarga un lote de URLs sin asistente interactivo
+  version     Muestra la versión, el commit y la fecha de compilación
+
+Descarga:
+  -o, --output DIR     carpeta donde se guardan los archivos (por defecto ".")
+  -c, --concurrency N  descargas simultáneas (por defecto 5)
+
+Sesión:
+  -k, --cookie COOKIE  cookie de sesión (ej. MoodleSession=abc123)
+      --uni CLAVE      universidad del catálogo, para leer la cookie del navegador (ej. ufro)
+      --domain HOST    dominio del campus, para leer la cookie del navegador (ej. campus.ejemplo.cl)
+
+Salida:
+      --headless       sin interfaz, con el progreso en stderr
+  -l, --log ARCHIVO    archivo de registro de depuración (ej. debug.txt)
+
+Otros:
+  -d, --demo           simula las descargas, sin usar la red
+  -h, --help           muestra esta ayuda
+  -v, --version        muestra la versión
 ```
 
-### Banderas Globales
+La cookie de sesión se busca en este orden: `-k/--cookie`, detección en el navegador (`--uni`/`--domain`) y la variable `MOODLE_SESSION`. `moofetch run --help` muestra además el grupo **Entrada** (`-u/--urls`, `-f/--file`).
 
-| Bandera | Shorthand | Valor por Defecto | Descripción |
-| :--- | :---: | :---: | :--- |
-| `--cookie` | `-k` | `""` | Cookie de sesión Moodle (o variable de entorno `MOODLE_SESSION`). |
-| `--concurrency` | `-c` | `5` | Límite máximo de descargas simultáneas en el worker pool. |
-| `--output` | `-o` | `"."` | Carpeta de destino para los archivos descargados. |
-| `--headless` | | `false` | Fuerza la ejecución en modo headless (progreso plano a `stderr`). |
-| `--log` | `-l` | `""` | Genera un archivo de diagnóstico estructurado con `log/slog`. |
-| `--uni` | | `""` | Universidad de la lista (ej. `ufro`). Busca la cookie en tu navegador. |
-| `--domain` | | `""` | Dominio de tu Moodle (ej. `campus.miuniversidad.cl`). Gana sobre `--uni`. |
-| `--demo` | `-d` | `false` | Modo simulación local para presentaciones y pruebas de carga. |
-| `--version` | `-v` | | Imprime la versión del binario. |
+### Banderas por grupo
 
-### Banderas Específicas de `run`
+| Grupo | Bandera | Shorthand | Valor por Defecto | Descripción |
+| :--- | :--- | :---: | :---: | :--- |
+| Descarga | `--output` | `-o` | `"."` | Carpeta donde se guardan los archivos. |
+| Descarga | `--concurrency` | `-c` | `5` | Descargas simultáneas en el worker pool. |
+| Sesión | `--cookie` | `-k` | `""` | Cookie de sesión Moodle (o variable de entorno `MOODLE_SESSION`). |
+| Sesión | `--uni` | | `""` | Universidad de la lista (ej. `ufro`). Busca la cookie en tu navegador. |
+| Sesión | `--domain` | | `""` | Dominio de tu Moodle (ej. `campus.miuniversidad.cl`). Gana sobre `--uni`. |
+| Salida | `--headless` | | `false` | Sin interfaz: progreso plano a `stderr`. |
+| Salida | `--log` | `-l` | `""` | Archivo de diagnóstico estructurado con `log/slog`. |
+| Otros | `--demo` | `-d` | `false` | Simulación local para presentaciones y pruebas de carga. |
+| Otros | `--version` | `-v` | | Imprime la versión del binario. |
+
+Los alias ocultos `--plain` (= `--headless`) y `--logger` (= `--log`) siguen funcionando para no romper scripts existentes.
+
+### Banderas Específicas de `run` (grupo Entrada)
 
 | Bandera | Shorthand | Descripción |
 | :--- | :---: | :--- |
-| `--urls` | `-u` | Lista de URLs separadas por coma. |
-| `--file` | `-f` | Ruta a un archivo de texto con URLs (una por línea). |
+| `--urls` | `-u` | URLs separadas por coma. |
+| `--file` | `-f` | Archivo de texto con una URL por línea. |
+
+Si no das `--urls` ni `--file` y hay datos por tubería, `run` lee las URLs de `stdin`.
 
 ### Variables de Entorno
 
