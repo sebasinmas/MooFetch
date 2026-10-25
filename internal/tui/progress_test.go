@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -143,4 +144,50 @@ func TestProgressModel_NoColor(t *testing.T) {
 	if strings.Contains(out, "\x1b[38;") || strings.Contains(out, "\x1b[48;") {
 		t.Errorf("expected no ANSI color sequences when NO_COLOR=1, got: %q", out)
 	}
+}
+
+func TestHyperlinkBlock_WholeBoxIsOneLink(t *testing.T) {
+	m := &progressModel{done: true}
+	box := m.renderCompletoBox()
+
+	const open = "\x1b]8;id=moofetch-support;https://ko-fi.com/sebasinmas\x1b\\"
+	const closing = "\x1b]8;;\x1b\\"
+	var linked int
+	for _, line := range strings.Split(strings.TrimRight(box, "\n"), "\n") {
+		if strings.TrimSpace(line) == "" {
+			if strings.Contains(line, "\x1b]8") {
+				t.Errorf("blank lines must not carry a link: %q", line)
+			}
+			continue
+		}
+		if !strings.HasPrefix(line, open) || !strings.HasSuffix(line, closing) {
+			t.Errorf("every box line must be wrapped in the hyperlink, got %q", line)
+		}
+		linked++
+	}
+	if linked < 4 { // top border, two text lines, bottom border
+		t.Errorf("expected the whole box to be linked, only %d lines were", linked)
+	}
+	plain := ansiStrip(box)
+	for _, want := range []string{"completo", "SebaSinMas", "ko-fi.com/sebasinmas"} {
+		if !strings.Contains(plain, want) {
+			t.Errorf("box should show %q, got:\n%s", want, plain)
+		}
+	}
+}
+
+func TestHyperlinkBlock_SkipsEmptyLines(t *testing.T) {
+	got := hyperlinkBlock("\nuno\n\ndos", "https://x.test")
+	lines := strings.Split(got, "\n")
+	if lines[0] != "" || lines[2] != "" {
+		t.Errorf("empty lines must stay empty: %q", lines)
+	}
+	if !strings.Contains(lines[1], "https://x.test") || !strings.Contains(lines[3], "https://x.test") {
+		t.Errorf("text lines must be linked: %q", lines)
+	}
+}
+
+// ansiStrip removes CSI and OSC escape sequences.
+func ansiStrip(s string) string {
+	return regexp.MustCompile("\x1b\\[[0-9;]*[A-Za-z]|\x1b\\][^\x1b]*\x1b\\\\").ReplaceAllString(s, "")
 }

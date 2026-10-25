@@ -1,0 +1,44 @@
+name: PR Title (Conventional Commit)
+
+# Con squash-merge, el título de la PR pasa a ser el mensaje del commit en
+# main/develop y, por tanto, la línea que aparece en los patchnotes de la
+# Release (ver .goreleaser.yaml y CONTRIBUTING.md). Por eso se valida aquí.
+#
+# Se usa `pull_request` (no `pull_request_target`) con permisos de solo
+# lectura y sin dependencias de terceros: la validación es un regexp en bash.
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Conventional Commit format
+        env:
+          # Pasado por variable de entorno (nunca interpolado en el script)
+          # para evitar inyección de comandos desde el título.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          types='feat|fix|perf|refactor|docs|test|chore|ci|build|deps|security|style'
+          pattern="^(${types})(\([a-z0-9_./-]+\))?!?: .+"
+          if [[ "$PR_TITLE" =~ $pattern ]]; then
+            echo "OK: $PR_TITLE"
+            exit 0
+          fi
+          {
+            echo "::error title=Título de PR inválido::'$PR_TITLE' no sigue Conventional Commits"
+            echo ""
+            echo "Formato: <tipo>(<scope opcional>)<!opcional>: <descripción>"
+            echo "Tipos válidos: ${types//|/, }"
+            echo "Ejemplos: 'feat(scan): listar recursos del curso', 'fix: rechazar HTML servido como PDF', 'feat!: renombrar --out'"
+            echo "Ver CONTRIBUTING.md (qué tipos aparecen en las notas de versión)."
+          } >&2
+          exit 1

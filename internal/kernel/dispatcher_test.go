@@ -347,7 +347,7 @@ func TestDispatcher_GracefulShutdown_CleansPartFile(t *testing.T) {
 	clientWroteFirstChunk := make(chan struct{}, 1)
 	unblockServer := make(chan struct{})
 
-	dummyContent := bytes.Repeat([]byte("A"), 1024*1024) // 1MB payload
+	dummyContent := append([]byte("%PDF-"), bytes.Repeat([]byte("A"), 1024*1024)...) // ~1MB payload with PDF magic
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")
@@ -456,7 +456,7 @@ func TestDispatcher_GracefulShutdown_ConcurrentMultipleWorkersCleansPartFiles(t 
 	unblockServer := make(chan struct{})
 	var progressCount int64
 
-	dummyContent := bytes.Repeat([]byte("B"), 512*1024)
+	dummyContent := append([]byte("%PDF-"), bytes.Repeat([]byte("B"), 512*1024)...)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")

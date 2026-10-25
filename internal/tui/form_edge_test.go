@@ -55,7 +55,9 @@ func TestNormalizeCookie_EdgeCases(t *testing.T) {
 		{"'MoodleSession=token'", "MoodleSession=token"},
 		{"MoodleSession:token", "MoodleSession=token"},
 		{"a=b; MoodleSession=token", "a=b; MoodleSession=token"},
-		{"MoodleSession=", "MoodleSession="},
+		{"MoodleSession=", ""},
+		{`MoodleSession=""`, ""},
+		{"MoodleSession:", ""},
 	}
 	for _, tc := range tests {
 		if got := tui.NormalizeCookie(tc.in); got != tc.want {

@@ -123,18 +123,18 @@ func TestMoodle_ContentLengthVariants(t *testing.T) {
 		}))
 		defer srv.Close()
 		dir := t.TempDir()
-		res, err := moodle.New().Download(context.Background(), domain.Task{ID: 1, URL: srv.URL + "/empty.pdf", OutputDir: dir}, nil)
+		res, err := moodle.New().Download(context.Background(), domain.Task{ID: 1, URL: srv.URL + "/empty.bin", OutputDir: dir}, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if res.BytesRead != 0 {
 			t.Errorf("BytesRead = %d", res.BytesRead)
 		}
-		st, err := os.Stat(filepath.Join(dir, "empty.pdf"))
+		st, err := os.Stat(filepath.Join(dir, "empty.bin"))
 		if err != nil || st.Size() != 0 {
 			t.Fatalf("expected empty final file, err=%v", err)
 		}
-		if _, err := os.Stat(filepath.Join(dir, "empty.pdf.moofetch.part")); !os.IsNotExist(err) {
+		if _, err := os.Stat(filepath.Join(dir, "empty.bin.moofetch.part")); !os.IsNotExist(err) {
 			t.Errorf("part file should not remain")
 		}
 	})
@@ -149,7 +149,7 @@ func TestMoodle_ContentLengthVariants(t *testing.T) {
 		defer srv.Close()
 		dir := t.TempDir()
 		var sawUnknownTotal bool
-		res, err := moodle.New().Download(context.Background(), domain.Task{ID: 1, URL: srv.URL + "/chunked.pdf", OutputDir: dir}, func(u domain.ProgressUpdate) {
+		res, err := moodle.New().Download(context.Background(), domain.Task{ID: 1, URL: srv.URL + "/chunked.bin", OutputDir: dir}, func(u domain.ProgressUpdate) {
 			if u.TotalBytes <= 0 {
 				sawUnknownTotal = true
 			}
@@ -160,7 +160,7 @@ func TestMoodle_ContentLengthVariants(t *testing.T) {
 		if res.BytesRead != 11 || !sawUnknownTotal {
 			t.Errorf("BytesRead=%d unknownTotal=%v", res.BytesRead, sawUnknownTotal)
 		}
-		data, _ := os.ReadFile(filepath.Join(dir, "chunked.pdf"))
+		data, _ := os.ReadFile(filepath.Join(dir, "chunked.bin"))
 		if string(data) != "hello world" {
 			t.Errorf("content = %q", data)
 		}

@@ -21,7 +21,7 @@ func TestCobra_HelpOutput(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "Usage:") {
+	if !strings.Contains(out, "Uso:") {
 		t.Errorf("expected help output to contain 'Usage:'")
 	}
 	if !strings.Contains(out, "run") {
@@ -75,7 +75,7 @@ func TestCobra_HelpCleanup(t *testing.T) {
 				t.Errorf("%v: help must not contain %q", args, unwanted)
 			}
 		}
-		if !strings.Contains(out, "Examples:") || !strings.Contains(out, "moofetch") {
+		if !strings.Contains(out, "Ejemplos:") || !strings.Contains(out, "moofetch") {
 			t.Errorf("%v: help must include examples", args)
 		}
 		for _, want := range []string{"--output", "--cookie", "--headless"} {

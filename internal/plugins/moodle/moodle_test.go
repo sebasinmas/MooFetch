@@ -362,7 +362,7 @@ func TestMoodle_InactivityTimeoutStalled(t *testing.T) {
 		w.Header().Set("Content-Type", "application/pdf")
 		w.Header().Set("Content-Length", "1000")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("initial chunk"))
+		_, _ = w.Write([]byte("%PDF-initial chunk"))
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}

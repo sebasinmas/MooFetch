@@ -44,6 +44,66 @@ jobs:
           echo "✅ Todos los archivos Go cumplen estrictamente con gofmt."
 
   # =========================================================================
+  # 1b. Análisis estático (golangci-lint, config en .golangci.yml)
+  # =========================================================================
+  golangci-lint:
+    name: Static Analysis (golangci-lint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          check-latest: true
+          cache: true
+
+      # .golangci.yml usa `version: "2"`: requiere action v7+ y golangci-lint v2.
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.5
+
+  # =========================================================================
+  # 1c. Trazabilidad: docs/traceability.md debe estar al día con el JSON
+  # =========================================================================
+  traceability:
+    name: Traceability Table Up-to-date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          check-latest: true
+          cache: true
+
+      - name: Check docs/traceability.md
+        run: go run scripts/gen-traceability.go -check
+
+  # =========================================================================
+  # 1d. Validación de la configuración de GoReleaser (sin publicar nada)
+  # =========================================================================
+  goreleaser-check:
+    name: GoReleaser Config Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run goreleaser check
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: check
+
+  # =========================================================================
   # 2. Pruebas Unitarias con Race Detector (-race)
   # =========================================================================
   test:
@@ -80,7 +140,7 @@ jobs:
   build-dry-run:
     name: Cross-Compilation Dry Run
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, golangci-lint, test]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

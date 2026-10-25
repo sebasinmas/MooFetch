@@ -5,5 +5,5 @@
 - `gofmt -l .` vacío; `golangci-lint run`; `go test -race ./...`
 - Cross-compile con `CGO_ENABLED=0` para linux/darwin/windows (amd64/arm64)
 - `moofetch --help` sin `completion`, con marca de vaca; `moofetch run --demo -o /tmp/out`
-- Prueba manual de autodetección y de fallback
+- Prueba manual de autodetección y de fallback (la autodetección por navegador sigue pendiente: ver [TASK-08](TASK-08-verificacion-manual-navegadores.md))
 - Actualizar `CLAUDE.md` y marcar todos los checkboxes en `docs/tasks/README.md`

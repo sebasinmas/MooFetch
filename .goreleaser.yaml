@@ -1,20 +1,35 @@
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # ==============================================================================
-# GoReleaser v2 - Configuración de Release y Compilación Multiplataforma
-# Proyecto: MooFetch
+# GoReleaser v2 - Release y compilación multiplataforma de MooFetch
+#
+# Secciones: proyecto, hooks, builds, archives, checksum, snapshot,
+#            changelog (patchnotes), release.
+#
+# Validar:        goreleaser check
+# Probar sin publicar:  goreleaser release --snapshot --clean
+#                       (artefactos y dist/CHANGELOG.md en ./dist)
+# Convención de commits/títulos de PR que alimenta el changelog: CONTRIBUTING.md
 # ==============================================================================
 version: 2
 
+# ------------------------------------------------------------------------------
+# Proyecto
+# ------------------------------------------------------------------------------
 project_name: moofetch
 
+# ------------------------------------------------------------------------------
+# Hooks previos al build
+# ------------------------------------------------------------------------------
 before:
   hooks:
     - go mod tidy
 
+# ------------------------------------------------------------------------------
+# Builds: linux/darwin/windows x amd64/arm64, sin CGO
+# ------------------------------------------------------------------------------
 builds:
   - id: moofetch
-    # Entrypoint de la CLI
-    main: ./cmd/moofetch
+    main: ./cmd/moofetch # entrypoint de la CLI (package main)
     binary: moofetch
     env:
       - CGO_ENABLED=0
@@ -25,16 +40,17 @@ builds:
     goarch:
       - amd64
       - arm64
-
-    # Inyección de metadatos en tiempo de compilación mediante LDFLAGS.
-    # Esta es la "Única Fuente de la Verdad", inyectando el Tag Git, Commit y Fecha.
+    # Metadatos inyectados en tiempo de compilación (única fuente de verdad:
+    # el tag Git). Las variables viven en package main (cmd/moofetch).
     ldflags:
       - -s -w
-      # El comando reside en package main
       - -X main.Version={{ .Version }}
       - -X main.Commit={{ .Commit }}
       - -X main.BuildDate={{ .Date }}
 
+# ------------------------------------------------------------------------------
+# Archives: tar.gz (zip en Windows) con README y LICENSE
+# ------------------------------------------------------------------------------
 archives:
   - id: default
     formats: [tar.gz]
@@ -47,46 +63,96 @@ archives:
       - README.md
       - LICENSE*
 
+# ------------------------------------------------------------------------------
+# Checksums (se publican como checksums.txt en la Release)
+# ------------------------------------------------------------------------------
 checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
+# ------------------------------------------------------------------------------
+# Snapshot (goreleaser release --snapshot): versión local sin tag
+# ------------------------------------------------------------------------------
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+# ------------------------------------------------------------------------------
+# Changelog / patchnotes
+#
+# Una línea por commit (con squash-merge: una línea por PR). `use: github`
+# agrega el enlace al PR y el autor. Las líneas se agrupan por el prefijo
+# Conventional Commits del título; ver la tabla en CONTRIBUTING.md.
+#
+# IMPORTANTE: GoReleaser asigna cada commit al PRIMER grupo (en el orden en que
+# están listados abajo) cuyo regexp coincide, por eso "Cambios incompatibles"
+# va primero. `order` solo define el orden de aparición en las notas.
+# Los regexps usan sintaxis RE2 (sin lookahead).
+# ------------------------------------------------------------------------------
 changelog:
   sort: asc
   use: github
+  abbrev: 7 # hash corto en cada línea (GitHub lo enlaza al commit)
   filters:
     exclude:
-      - "^docs:"
-      - "^test:"
-      - "^chore:"
-      - "Merge pull request"
-      - "Merge branch"
+      # Tipos que no le interesan al usuario final (plano o con scope).
+      # Sin `!` a propósito: un `chore!:` o `docs!:` sí debe verse como cambio
+      # incompatible y cae en el primer grupo.
+      - '^(docs|test|chore|ci|style)(\([^)]+\))?:'
+      # Commits de merge (merge commits clásicos de GitHub o locales).
+      - '^Merge (pull request|branch|remote-tracking branch)'
   groups:
-    - title: "🚀 Nuevas Características"
-      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
-      order: 100
-    - title: "🐛 Corrección de Errores"
-      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
-      order: 200
+    - title: "⚠️ Cambios incompatibles"
+      regexp: '^[[:word:]]+(\([^)]+\))?!:'
+      order: 0
+    - title: "🚀 Nuevas características"
+      regexp: '^feat(\([^)]+\))?:'
+      order: 10
+    - title: "🐛 Corrección de errores"
+      regexp: '^fix(\([^)]+\))?:'
+      order: 20
+    - title: "🔒 Seguridad"
+      regexp: '^security(\([^)]+\))?:'
+      order: 30
     - title: "⚡ Rendimiento"
-      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
-      order: 300
-    - title: "🔄 Refactorización & Arquitectura"
-      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
-      order: 400
-    - title: "Otros Cambios"
+      regexp: '^perf(\([^)]+\))?:'
+      order: 40
+    - title: "🔄 Refactorización y arquitectura"
+      regexp: '^refactor(\([^)]+\))?:'
+      order: 50
+    - title: "📦 Dependencias y build"
+      # Cubre `deps:`, `deps(scope):`, `build:` y `build(deps):` (Dependabot).
+      regexp: '^(deps|build)(\([^)]+\))?:'
+      order: 60
+    - title: "Otros cambios"
+      # Sin regexp: recoge lo que no siguió la convención.
       order: 999
 
+# ------------------------------------------------------------------------------
+# Release en GitHub
+# ------------------------------------------------------------------------------
 release:
   github:
     owner: sebasinmas
     name: MooFetch
   draft: false
-  prerelease: auto
+  prerelease: auto # tags con sufijo (-rc1, -beta1) se publican como prerelease
   mode: replace
   header: |
-    ## Release {{ .Tag }} ({{ .Date }})
-    Distribución oficial de **MooFetch**. Binarios precompilados disponibles a continuación.
+    ## MooFetch {{ .Tag }}
+
+    Binarios precompilados para Linux, macOS y Windows (amd64 y arm64).
+    Descarga el archivo de tu plataforma (`.tar.gz`; `.zip` en Windows).
+
+    **Verificar la descarga** (desde la carpeta donde guardaste el archivo y `checksums.txt`):
+
+    ```bash
+    sha256sum -c checksums.txt --ignore-missing      # Linux
+    shasum -a 256 -c checksums.txt --ignore-missing  # macOS
+    ```
+  footer: |
+    ---
+    {{ if .PreviousTag -}}
+    **Changelog completo**: [{{ .PreviousTag }}...{{ .Tag }}](https://github.com/sebasinmas/MooFetch/compare/{{ .PreviousTag }}...{{ .Tag }})
+
+    {{ end -}}
+    Trazabilidad de requisitos y decisiones de esta versión: [docs/traceability.md](https://github.com/sebasinmas/MooFetch/blob/{{ .Tag }}/docs/traceability.md)

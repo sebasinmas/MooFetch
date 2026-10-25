@@ -40,6 +40,9 @@ func scriptedInputs(t *testing.T, scripts ...[]string) {
 				if _, err := pw.Write([]byte(k)); err != nil {
 					return
 				}
+				// huh moves between fields/groups through asynchronous
+				// commands; give them time so keys are not delivered early.
+				time.Sleep(keyDelay)
 			}
 		}()
 		return pr
@@ -53,6 +56,8 @@ func scriptedInputs(t *testing.T, scripts ...[]string) {
 		}
 	})
 }
+
+const keyDelay = 40 * time.Millisecond
 
 const (
 	keyEnter = "\r"
@@ -118,10 +123,10 @@ func TestRunInteractiveFormWithAuth_DetectFlow(t *testing.T) {
 		wantDetect string // domain Detect must receive; "" means not called
 		wantNotice string
 	}{
-		{"detected", []string{keyEnter, keyEnter},
+		{"detected", []string{keyEnter, keyEnter, keyEnter},
 			func(_ context.Context, d string) (string, error) { return "MoodleSession=zzz", nil },
 			"campus.uni.cl", "Cookie de sesión detectada."},
-		{"detect fails -> manual paste", []string{keyEnter, keyEnter},
+		{"detect fails -> manual paste", []string{keyEnter, keyEnter, keyEnter},
 			func(context.Context, string) (string, error) { return "", errors.New("no browsers") },
 			"campus.uni.cl", "Pégala manualmente"},
 	}
@@ -134,7 +139,8 @@ func TestRunInteractiveFormWithAuth_DetectFlow(t *testing.T) {
 				return tc.detect(ctx, d)
 			})
 			opts.Notice = &notice
-			// auth step: pick first university + confirm; then the form is aborted.
+			// auth step: skip splash, pick first university, confirm; the form
+			// that follows (no splash) is aborted.
 			scriptedInputs(t, tc.authKeys, []string{keyCtrlC})
 			_, err := RunInteractiveFormWithAuth(context.Background(), opts, false)
 			if !errors.Is(err, ErrFormAborted) {
@@ -154,13 +160,116 @@ func TestRunInteractiveFormWithAuth_PresetDomainAndAbort(t *testing.T) {
 	called := false
 	opts := testAuthOptions(func(context.Context, string) (string, error) { called = true; return "", nil })
 	opts.Domain = "campus.preset.cl"
-	// Only the consent question is shown; Ctrl+C aborts it.
-	scriptedInputs(t, []string{keyCtrlC})
+	// Splash is skipped, then only the consent question is shown; Ctrl+C aborts it.
+	scriptedInputs(t, []string{keyEnter, keyCtrlC})
 	if _, err := RunInteractiveFormWithAuth(context.Background(), opts, false); !errors.Is(err, ErrFormAborted) {
 		t.Fatalf("want ErrFormAborted, got %v", err)
 	}
 	if called {
 		t.Error("Detect must not run after aborting the consent step")
+	}
+}
+
+func twoUniOptions(detect func(context.Context, string) (string, error)) *AuthOptions {
+	return &AuthOptions{
+		Universities: []University{{Name: "A", Domain: "a.uni.cl"}, {Name: "B", Domain: "b.uni.cl"}},
+		ValidateDomain: func(s string) (string, error) {
+			return strings.ToLower(strings.TrimSpace(s)), nil
+		},
+		Detect: detect,
+	}
+}
+
+func TestAuthFlow_SplashComesFirst(t *testing.T) {
+	var got string
+	opts := twoUniOptions(func(_ context.Context, d string) (string, error) { got = d; return "MoodleSession=zzz", nil })
+	// Down skips the splash; if the campus screen came first it would move the
+	// cursor to "B". Then: Enter picks the campus, Enter accepts the consent.
+	// The URLs form follows (cookie already detected, no splash, no cookie step).
+	scriptedInputs(t,
+		[]string{"\x1b[B", keyEnter, keyEnter},
+		[]string{"https://campus.uni.cl/a.pdf", keyEsc, keyEnter},
+	)
+	data, err := RunInteractiveFormWithAuth(context.Background(), opts, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "a.uni.cl" {
+		t.Errorf("splash must be shown before the campus screen: Detect got %q", got)
+	}
+	if data.Cookie != "MoodleSession=zzz" || len(data.URLs) != 1 || data.URLs[0] != "https://campus.uni.cl/a.pdf" {
+		t.Errorf("unexpected data: %+v", data)
+	}
+}
+
+func TestAuthFlow_ConsentIsItsOwnScreen(t *testing.T) {
+	called := false
+	opts := twoUniOptions(func(context.Context, string) (string, error) { called = true; return "", nil })
+	var notice strings.Builder
+	opts.Notice = &notice
+	// skip splash, pick campus (Enter), then refuse on the consent screen ("n" + Enter);
+	// the manual form (cookie + URLs, no splash) is then aborted.
+	scriptedInputs(t, []string{keyEnter, keyEnter, "n", keyEnter}, []string{keyCtrlC})
+	if _, err := RunInteractiveFormWithAuth(context.Background(), opts, false); !errors.Is(err, ErrFormAborted) {
+		t.Fatalf("want ErrFormAborted, got %v", err)
+	}
+	if called {
+		t.Error("Detect must not run when the user refuses on the consent screen")
+	}
+}
+
+func TestAuthFlow_CustomDomain(t *testing.T) {
+	var got string
+	opts := twoUniOptions(func(_ context.Context, d string) (string, error) { got = d; return "", errors.New("nope") })
+	// skip splash; Down x2 selects "Otra…"; type the domain; Enter; consent Enter.
+	scriptedInputs(t,
+		[]string{keyEnter, "\x1b[B", "\x1b[B", keyEnter, "Campus.X.cl", keyEnter, keyEnter},
+		[]string{keyCtrlC},
+	)
+	if _, err := RunInteractiveFormWithAuth(context.Background(), opts, false); !errors.Is(err, ErrFormAborted) {
+		t.Fatalf("want ErrFormAborted, got %v", err)
+	}
+	if got != "campus.x.cl" {
+		t.Errorf("Detect domain = %q, want campus.x.cl", got)
+	}
+}
+
+func TestAuthFlow_PresetDomainSkipsCampusScreen(t *testing.T) {
+	var got string
+	opts := twoUniOptions(func(_ context.Context, d string) (string, error) { got = d; return "", errors.New("nope") })
+	opts.Domain = "campus.preset.cl"
+	// Only splash + consent: two Enters reach Detect. A campus screen would
+	// swallow the second Enter and leave the consent unanswered.
+	scriptedInputs(t, []string{keyEnter, keyEnter}, []string{keyCtrlC})
+	if _, err := RunInteractiveFormWithAuth(context.Background(), opts, false); !errors.Is(err, ErrFormAborted) {
+		t.Fatalf("want ErrFormAborted, got %v", err)
+	}
+	if got != "campus.preset.cl" {
+		t.Errorf("Detect domain = %q", got)
+	}
+}
+
+func TestAuthFlow_AbortPaths(t *testing.T) {
+	tests := map[string][]string{
+		"on splash":  {keyCtrlC},
+		"on campus":  {keyEnter, keyCtrlC},
+		"on consent": {keyEnter, keyEnter, keyCtrlC},
+	}
+	for name, keys := range tests {
+		t.Run(name, func(t *testing.T) {
+			opts := twoUniOptions(func(context.Context, string) (string, error) { t.Error("Detect must not run"); return "", nil })
+			scriptedInputs(t, keys)
+			if _, err := RunInteractiveFormWithAuth(context.Background(), opts, false); !errors.Is(err, ErrFormAborted) {
+				t.Fatalf("want ErrFormAborted, got %v", err)
+			}
+		})
+	}
+}
+
+func TestRunForm_WithoutSplashAborts(t *testing.T) {
+	scriptedInputs(t, []string{keyCtrlC})
+	if _, err := runForm(NewInteractiveForm(true), false); !errors.Is(err, ErrFormAborted) {
+		t.Fatalf("want ErrFormAborted, got %v", err)
 	}
 }
 
@@ -194,8 +303,8 @@ func TestBuildAuthGroups(t *testing.T) {
 	var choice, custom string
 	consent := true
 	opts := &AuthOptions{Universities: []University{{Name: "U", Domain: "u.cl"}}}
-	if g := buildAuthGroups(opts, "", &choice, &custom, &consent); len(g) != 2 {
-		t.Errorf("no preset domain: want question + custom-domain groups, got %d", len(g))
+	if g := buildAuthGroups(opts, "", &choice, &custom, &consent); len(g) != 3 {
+		t.Errorf("no preset domain: want campus + custom-domain + consent groups, got %d", len(g))
 	}
 	if g := buildAuthGroups(opts, "u.cl", &choice, &custom, &consent); len(g) != 1 {
 		t.Errorf("preset domain: want consent group only, got %d", len(g))
