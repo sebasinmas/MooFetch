@@ -55,7 +55,7 @@ graph TD
     end
 
     subgraph Auth ["4b. Detección de Token (internal/auth)"]
-        AUTH["internal/auth<br/><b>CookieProvider (puerto) + Catálogo de Universidades</b><br/>(adaptador kooky: Chrome/Firefox/Edge)"]
+        AUTH["internal/auth<br/><b>CookieProvider (puerto) + Catálogo de Universidades</b><br/>(adaptador kooky: Chrome/Chromium/Edge/Opera/Brave; Safari en macOS y Firefox ver nota)"]
     end
 
     subgraph CrossCutting ["5. Soporte Transversal"]
@@ -148,13 +148,16 @@ graph TD
 ### 3.5. Detección de Token (`internal/auth`) — ver ADR 003
 - Puerto consumer-driven `CookieProvider{ Find(ctx, domain) (string, error) }` y catálogo de universidades (`ufro` → `campusvirtual.ufro.cl`, más opción de dominio personalizado).
 - Adaptador concreto basado en `github.com/browserutils/kooky` que lee la cookie `MoodleSession` del dominio desde los navegadores locales.
+- Cobertura real de kooky (`browser/all`): Chrome, Chromium, Edge, Opera y Brave, además de Safari (solo macOS) y Firefox. Opera, Brave y Safari están registrados pero **sin verificar manualmente**; tampoco hay verificación manual de Chrome y Edge. La matriz completa está en el [ADR 003](adr/003-deteccion-automatica-de-token.md#5-matriz-de-soporte-y-verificación-por-navegador).
+- **Firefox:** `MoodleSession` es una cookie de sesión y Firefox no la guarda en `cookies.sqlite` (que es lo que lee kooky); vive en `sessionstore-backups/recovery.jsonlz4`. `internal/auth/firefox.go` lee ese respaldo (fusionado desde `fix/cookie-autodetect`); falta la verificación manual (TR-019).
+- El texto de consentimiento del TUI (`internal/tui/authstep.go`) lista todos los navegadores que busca kooky.
 - **No** importa `kernel` ni `tui`. El Composition Root (`cmd/moofetch`) lo cablea y entrega el resultado al formulario o al modo headless.
-- Flujo: seleccionar universidad → mensaje de consentimiento → búsqueda en el navegador → si falla o se rechaza, pegado manual / `MOODLE_SESSION`. La cookie nunca se persiste ni se registra sin ofuscar.
+- Flujo del modo interactivo (TR-018): **splash con el logo** → seleccionar universidad → consentimiento (una decisión por pantalla) → búsqueda en el navegador → cookie manual (solo si no se detectó) → URL de la página del curso → `Scan` (inyectado en `AuthOptions`, `internal/tui/scanstep.go`) → selección de recursos por nombre, todos marcados. El formulario de enlaces pegados a mano queda como alternativa (URL vacía o escaneo fallido) y es el único paso en `--demo`. El splash y el formulario de campus/consentimiento corren en un mismo programa Bubble Tea; el formulario de cookie/URLs va aparte, sin repetir el logo ([TASK-09](tasks/TASK-09-orden-logo-campus.md)). La cookie nunca se persiste ni se registra sin ofuscar.
 
 ### 3.6. Capa de Presentación de Terminal (`internal/tui`)
 - Centraliza toda la interacción con el usuario en terminal:
   - Formulario interactivo con `huh`.
-  - Pantalla splash inicial con la identidad MooFetch (vaca 🐄 en banner, formulario y tarjeta de progreso).
+  - Pantalla splash con la identidad MooFetch (vaca 🐄 en banner, formulario y tarjeta de progreso); se muestra primero, antes del paso de campus/consentimiento.
   - Vista reactiva de progreso en tarjeta con Bubble Tea (`tea.Model`) y Lipgloss (soporte `NO_COLOR` y paletas adaptativas).
   - Ejecución en texto plano headless para tuberías Unix (`RunHeadlessProgress`).
 
@@ -180,7 +183,20 @@ La separación en capas permite soportar múltiples consumidores sin alterar el 
 
 ---
 
-## 5. Decisiones Arquitectónicas Registradas
+## 5. Extensibilidad: cómo añadir un módulo
+
+El diseño de microkernel estático permite añadir soporte para otra plataforma sin tocar el kernel ni la UI:
+
+1. Crear un paquete en `internal/plugins/<nombre>` que implemente `kernel.DownloaderPlugin` (definida en `internal/kernel/kernel.go`, consumer-driven): `Name() string`, `CanHandle(rawURL string) bool` y `Download(ctx, domain.Task, domain.ProgressFunc) (*domain.Result, error)`.
+2. El plugin importa solo `internal/domain` y `internal/logger`; **nunca** `kernel` ni `tui`. Si la autenticación falla de forma irrecuperable, devuelve un error que cumpla `domain.FatalAuthError` para activar el circuit breaker.
+3. Cablearlo en el Composition Root (`cmd/moofetch/main.go`, función `initKernel`) pasándolo en `kernel.WithPlugins([]kernel.DownloaderPlugin{...})`. El `Registry` lo elige por `CanHandle(url)`; no hay `init()` ni registro global.
+4. Añadir tests con servidor HTTP falso (como los de `plugins/moodle`) y registrar el cambio en [traceability.md](traceability.md).
+
+**Base para futuros clientes:** `kernel` y `domain` no dependen de UI, stdout ni HTTP concreto; solo exponen `Dispatch` y un flujo de eventos (`domain.EventHandler`). Por eso una **extensión de navegador** (vía un daemon que reciba JSON por `stdin` o WebSocket) y una **GUI de escritorio** pueden reutilizar el mismo núcleo sin modificarlo (ver 4.2 y 4.3). Ambas están *por implementar* (TR-016, TR-017).
+
+---
+
+## 6. Decisiones Arquitectónicas Registradas
 
 Para profundizar en las decisiones técnicas y su justificación histórica, consultar los Architectural Decision Records (ADRs):
 - [ADR 001: Interfaz Headless, Tuberías Unix y Códigos de Salida POSIX](adr/001-interfaz-headless-posix.md)
@@ -188,4 +204,4 @@ Para profundizar en las decisiones técnicas y su justificación histórica, con
 - [ADR 003: Detección Automática del Token de Sesión Moodle](adr/003-deteccion-automatica-de-token.md)
 - [ADR 004: Rebranding a MooFetch](adr/004-rebranding-moofetch.md)
 
-El plan de trabajo vigente está en [docs/tasks/](tasks/README.md).
+El plan de trabajo vigente está en [docs/tasks/](tasks/README.md) y el estado de cada funcionalidad en [traceability.md](traceability.md).

@@ -1,6 +1,6 @@
 # Backlog MooFetch (rebranding + calidad + autodetección de token)
 
-Arquitectura objetivo: [../architecture.md](../architecture.md). Decisiones: [ADR 003](../adr/003-deteccion-automatica-de-token.md), [ADR 004](../adr/004-rebranding-moofetch.md).
+Arquitectura objetivo: [../architecture.md](../architecture.md). Decisiones: [ADR 003](../adr/003-deteccion-automatica-de-token.md), [ADR 004](../adr/004-rebranding-moofetch.md). Estado por funcionalidad: [traceability.md](../traceability.md).
 
 ```mermaid
 graph TD
@@ -10,6 +10,10 @@ graph TD
     T04 --> T03
     T03 --> T05[TASK-05 Verificación final]
     T05 --> T06[TASK-06 Cobertura > 80%]
+    T04 --> T07[TASK-07 Firefox session store]
+    T04 --> T08[TASK-08 Verificación manual navegadores]
+    T04 --> T09[TASK-09 Logo antes del campus]
+    T07 --> T08
 ```
 
 | Tarea | Estado |
@@ -20,5 +24,10 @@ graph TD
 | [TASK-04 Autodetección de token](TASK-04-token-autodetect.md) | [x] |
 | [TASK-05 Verificación final](TASK-05-final-verification.md) | [x] |
 | [TASK-06 Cobertura > 80%](TASK-06-coverage-80.md) | [x] |
+| [TASK-07 Firefox session store](TASK-07-firefox-session-store.md) (fusionada; verificación manual en Firefox pendiente) | [ ] |
+| [TASK-08 Verificación manual Edge/Opera/Safari/Chrome](TASK-08-verificacion-manual-navegadores.md) | [ ] |
+| [TASK-09 Logo antes de la selección de campus](TASK-09-orden-logo-campus.md) (en proceso) | [ ] |
+
+Requisito de toolchain: Go 1.24+ (ver `go.mod`).
 
 Reglas para agentes: no hacer commits salvo petición; TASK-02 y TASK-04 tocan `root.go`/`form.go`, por lo que se ejecutan en worktrees aislados; marcar el checkbox al terminar.

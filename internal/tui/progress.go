@@ -320,9 +320,35 @@ func (m *progressModel) renderSummary() string {
 	return summaryCardBorder.Render(sb.String()) + "\n"
 }
 
+// supportURL is where the "buy him a completo" box points.
+const supportURL = "https://ko-fi.com/sebasinmas"
+
 func (m *progressModel) renderCompletoBox() string {
-	boxContent := fmt.Sprintf("🌭 Considera comprarle un completo al %s", authorHighlight.Render("SebaSinMas"))
-	return completoCard.Render(boxContent) + "\n"
+	boxContent := fmt.Sprintf("🌭 Considera comprarle un completo al %s\n%s",
+		authorHighlight.Render("SebaSinMas"),
+		dimStyle.Render("ko-fi.com/sebasinmas"))
+	return hyperlinkBlock(completoCard.Render(boxContent), supportURL) + "\n"
+}
+
+// hyperlinkBlock makes every non-empty line of a rendered block part of one
+// clickable OSC 8 terminal hyperlink. The link is opened per line (terminals
+// and Bubble Tea's renderer handle lines independently) and all lines share
+// one id, so supporting terminals highlight and open the whole box as a
+// single link. Terminals without OSC 8 ignore the sequences; the address is
+// also written in plain text inside the box.
+func hyperlinkBlock(block, target string) string {
+	const (
+		linkStart = "\x1b]8;id=moofetch-support;"
+		linkEnd   = "\x1b]8;;\x1b\\"
+	)
+	lines := strings.Split(block, "\n")
+	for i, l := range lines {
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		lines[i] = linkStart + target + "\x1b\\" + l + linkEnd
+	}
+	return strings.Join(lines, "\n")
 }
 
 // RunProgressUI starts the Bubble Tea parallel download progress interface.

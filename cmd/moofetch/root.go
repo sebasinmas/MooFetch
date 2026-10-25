@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/mattn/go-isatty"
-	"github.com/sebasinmas/MooFetch/internal/domain"
 	"github.com/sebasinmas/MooFetch/internal/tui"
 	"github.com/spf13/cobra"
 )
@@ -40,12 +37,20 @@ func shouldUseHeadless() bool {
 
 var rootCmd = &cobra.Command{
 	Use:   "moofetch",
-	Short: "MooFetch: Descargas masivas y concurrentes de plataformas educativas (Moodle, etc.)",
-	Long: `MooFetch es una herramienta CLI de alto rendimiento diseñada para descargar
-masivamente y en paralelo archivos PDF y material educativo de plataformas Moodle y similares,
-inyectando cookies de sesión y resolviendo redirecciones HTTP 303 de forma transparente.
+	Short: "Descarga masiva de archivos desde campus Moodle usando tu sesión",
+	Long: `MooFetch descarga en paralelo los archivos (PDF y otro material) de un campus
+Moodle usando la cookie de sesión de tu navegador.
 
-Sin argumentos abre un asistente interactivo; con datos por stdin funciona en modo headless.`,
+Modos de uso:
+  Interactivo   sin argumentos y en una terminal, abre un asistente paso a paso.
+  Headless      si los datos llegan por tubería (stdin) o usas --headless, no
+                hay interfaz: el progreso va a stderr y stdout queda limpio.
+  Subcomando    "moofetch run" toma las URLs de flags, archivo o tubería.
+
+Origen de la cookie de sesión (en este orden):
+  1. -k, --cookie
+  2. detección en el navegador con --uni o --domain
+  3. variable de entorno MOODLE_SESSION`,
 	Example: `  # Asistente interactivo
   moofetch
 
@@ -53,88 +58,53 @@ Sin argumentos abre un asistente interactivo; con datos por stdin funciona en mo
   export MOODLE_SESSION="MoodleSession=abc123"
   cat urls.txt | moofetch -o ./descargas
 
+  # Cookie detectada desde el navegador
+  moofetch run --uni ufro -f urls.txt
+
   # Salida limpia para scripts (progreso en stderr)
   grep -o 'https://[^ ]*' pagina.html | moofetch --headless -k "$MOODLE_SESSION"`,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		headless := shouldUseHeadless()
-
-		var formData *tui.FormData
-		if !isTerminal(os.Stdin.Fd()) {
-			// Input piped via stdin
-			var rawURLs []string
-			scanner := bufio.NewScanner(os.Stdin)
-			for scanner.Scan() {
-				if trimmed := strings.TrimSpace(scanner.Text()); trimmed != "" {
-					rawURLs = append(rawURLs, trimmed)
-				}
-			}
-			if err := scanner.Err(); err != nil {
-				return fmt.Errorf("error al leer URLs desde stdin: %w", err)
-			}
-
-			var cleanURLs []string
-			if flagDemo {
-				cleanURLs = tui.CleanURLsDemo(strings.Join(rawURLs, "\n"))
-			} else {
-				cleanURLs = tui.CleanURLs(strings.Join(rawURLs, "\n"))
-			}
-
-			if len(cleanURLs) == 0 {
-				return fmt.Errorf("no se detectaron URLs válidas desde la entrada estándar (stdin)")
-			}
-
-			cookie := flagCookie
-			if cookie == "" && !flagDemo {
-				var cerr error
-				cookie, cerr = resolveHeadlessCookie(cmd.Context(), flagCookie)
-				if cerr != nil {
-					return cerr
-				}
-				if cookie == "" {
-					return fmt.Errorf("se detectó entrada por tubería (stdin), pero falta la cookie de sesión. Usa --cookie (-k) o la variable MOODLE_SESSION")
-				}
-			}
-
-			formData = &tui.FormData{
-				Cookie: cookie,
-				URLs:   cleanURLs,
-			}
-		} else {
-			opts, err := authOptions()
-			if err != nil {
-				return err
-			}
-			formData, err = tui.RunInteractiveFormWithAuth(cmd.Context(), opts, flagDemo)
-			if err != nil {
-				if errors.Is(err, tui.ErrFormAborted) {
-					fmt.Fprintln(os.Stderr, "\nDescarga cancelada por el usuario.")
-					return tui.ErrFormAborted
-				}
-				return fmt.Errorf("error en formulario interactivo: %w", err)
-			}
+		if isTerminal(os.Stdin.Fd()) {
+			return runInteractive(cmd)
 		}
-
-		appLogger, logPath := setupLogger(flagLogPath, flagConcurrency, flagOutputDir, formData, flagDemo)
-		if appLogger != nil {
-			defer func() { _ = appLogger.Close() }()
-		}
-
-		tasks := createTasks(formData, flagOutputDir)
-		k := initKernel(flagConcurrency, appLogger, flagDemo)
-
-		var results []domain.Result
-		var err error
-		if headless {
-			results, err = tui.RunHeadlessProgress(cmd.Context(), k, tasks, os.Stderr)
-		} else {
-			results, err = tui.RunProgressUI(cmd.Context(), k, tasks, logPath)
-		}
-		if err != nil {
-			return fmt.Errorf("error durante la ejecución de las descargas: %w", err)
-		}
-
-		return handleCompletion(results, logPath)
+		return runFromStdin(cmd)
 	},
+}
+
+// runFromStdin downloads the URLs piped through stdin without any prompt.
+func runFromStdin(cmd *cobra.Command) error {
+	raw, err := collectURLs("", "", true, os.Stdin)
+	if err != nil {
+		return err
+	}
+	urls := cleanURLList(raw, flagDemo)
+	if len(urls) == 0 {
+		return fmt.Errorf("no se detectaron URLs válidas desde la entrada estándar (stdin)")
+	}
+
+	cookie, err := resolveCookie(cmd.Context(), flagDemo, flagCookie,
+		"se detectó entrada por tubería (stdin), pero falta la cookie de sesión. Usa --cookie (-k) o la variable MOODLE_SESSION")
+	if err != nil {
+		return err
+	}
+	return execute(cmd.Context(), &tui.FormData{Cookie: cookie, URLs: urls})
+}
+
+// runInteractive shows the wizard and then downloads what the user entered.
+func runInteractive(cmd *cobra.Command) error {
+	opts, err := authOptions()
+	if err != nil {
+		return err
+	}
+	form, err := tui.RunInteractiveFormWithAuth(cmd.Context(), opts, flagDemo)
+	if err != nil {
+		if errors.Is(err, tui.ErrFormAborted) {
+			fmt.Fprintln(os.Stderr, "\nDescarga cancelada por el usuario.")
+			return tui.ErrFormAborted
+		}
+		return fmt.Errorf("error en formulario interactivo: %w", err)
+	}
+	return execute(cmd.Context(), form)
 }
 
 func init() {
@@ -142,23 +112,40 @@ func init() {
 	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate(formatVersion() + "\n")
 
-	rootCmd.PersistentFlags().IntVarP(&flagConcurrency, "concurrency", "c", 5, "Número de descargas concurrentes")
-	rootCmd.PersistentFlags().StringVarP(&flagOutputDir, "output", "o", ".", "Directorio donde guardar los archivos descargados")
-	rootCmd.PersistentFlags().BoolVarP(&flagDemo, "demo", "d", false, "Ejecutar en modo demostración para showcases")
-	rootCmd.PersistentFlags().StringVarP(&flagLogPath, "log", "l", "", "Ruta de archivo para el registro de depuración (ej. debug.txt)")
-	rootCmd.PersistentFlags().StringVar(&flagLogPath, "logger", "", "Alias para --log")
-	_ = rootCmd.PersistentFlags().MarkHidden("logger")
+	pf := rootCmd.PersistentFlags()
 
-	rootCmd.PersistentFlags().StringVarP(&flagCookie, "cookie", "k", "", "Cookie de sesión (ej. MoodleSession=...)")
-	rootCmd.PersistentFlags().BoolVar(&flagHeadless, "headless", false, "Ejecutar en modo headless sin TUI (salida de progreso en stderr)")
-	rootCmd.PersistentFlags().BoolVar(&flagPlain, "plain", false, "Alias para --headless")
-	_ = rootCmd.PersistentFlags().MarkHidden("plain")
+	// Descarga
+	pf.StringVarP(&flagOutputDir, "output", "o", ".", "carpeta donde se guardan los archivos")
+	pf.IntVarP(&flagConcurrency, "concurrency", "c", 5, "descargas simultáneas")
 
-	rootCmd.PersistentFlags().StringVar(&flagUni, "uni", "", "Universidad del catálogo para detectar la cookie del navegador (ej. ufro)")
-	rootCmd.PersistentFlags().StringVar(&flagDomain, "domain", "", "Dominio personalizado del campus (ej. campus.ejemplo.cl) para detectar la cookie")
+	// Sesión
+	pf.StringVarP(&flagCookie, "cookie", "k", "", "cookie de sesión (ej. MoodleSession=abc123)")
+	pf.StringVar(&flagUni, "uni", "", "universidad del catálogo, para leer la cookie del navegador (ej. ufro)")
+	pf.StringVar(&flagDomain, "domain", "", "dominio del campus, para leer la cookie del navegador (ej. campus.ejemplo.cl)")
+
+	// Salida
+	pf.BoolVar(&flagHeadless, "headless", false, "sin interfaz, con el progreso en stderr")
+	pf.StringVarP(&flagLogPath, "log", "l", "", "archivo de registro de depuración (ej. debug.txt)")
+
+	// Otros
+	pf.BoolVarP(&flagDemo, "demo", "d", false, "simula las descargas, sin usar la red")
+
+	// Hidden aliases kept for backward compatibility with existing scripts.
+	pf.StringVar(&flagLogPath, "logger", "", "alias de --log")
+	_ = pf.MarkHidden("logger")
+	pf.BoolVar(&flagPlain, "plain", false, "alias de --headless")
+	_ = pf.MarkHidden("plain")
+
+	setFlagGroup(pf, groupDownload, "output", "concurrency")
+	setFlagGroup(pf, groupSession, "cookie", "uni", "domain")
+	setFlagGroup(pf, groupOutput, "headless", "log")
+	setFlagGroup(pf, groupOther, "demo")
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(runCmd)
+	configureHelp(rootCmd)
+	configureSubcommandHelp(runCmd)
+	configureSubcommandHelp(versionCmd)
 }
 
 func Execute(ctx context.Context) error {

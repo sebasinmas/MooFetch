@@ -1,57 +1,47 @@
-## 📌 Resumen del Cambio
+<!--
+TÍTULO DE LA PR (obligatorio, lo valida CI): <tipo>(<scope opcional>)<!>: <descripción>
+Ej.: `feat(scan): listar recursos del curso` · `fix: rechazar HTML servido como PDF` · `feat!: renombrar --out`
+Con squash-merge este título es la línea que aparece en las notas de versión. Ver CONTRIBUTING.md.
+-->
 
-<!-- Describe de forma concisa el propósito de esta Pull Request. ¿Qué problema resuelve o qué nueva funcionalidad introduce? -->
+## 📌 Resumen del cambio
 
----
+<!-- ¿Qué problema resuelve o qué funcionalidad introduce? Breve. -->
 
-## 🎯 Tipo de Cambio
+## 🎯 Tipo de cambio
 
-- [ ] 🚀 Nueva funcionalidad (`feat`)
-- [ ] 🐛 Corrección de bug (`fix`)
-- [ ] 🔄 Refactorización arquitectónica (`refactor`)
-- [ ] ⚡ Optimización de rendimiento (`perf`)
-- [ ] 📝 Actualización de documentación (`docs`)
-- [ ] 🧪 Pruebas unitarias o de integración (`test`)
-- [ ] 🛠️ Tareas de mantenimiento o dependencias (`chore` / `ci`)
+<!-- Debe coincidir con el tipo del título de la PR. -->
 
----
+- [ ] `feat` nueva funcionalidad
+- [ ] `fix` corrección de bug
+- [ ] `perf` rendimiento
+- [ ] `refactor` refactorización
+- [ ] `security` seguridad
+- [ ] `deps` / `build` dependencias o build
+- [ ] `docs` / `test` / `chore` / `ci` / `style` (no aparecen en las notas de versión)
+- [ ] **Cambio incompatible** (`!` en el título; describir la migración abajo)
 
-## 🔗 Issues o ADRs Relacionados
+## 🗒️ Nota de versión (una línea para el usuario)
 
-<!-- Enlaza los issues o ADRs correspondientes (ej. Closes #12, Cumple con ADR 002) -->
-- Issue / ADR: 
+<!-- Qué cambia para quien usa MooFetch, en lenguaje llano. Escribe "n/a" si es interno (docs, test, ci...). -->
 
----
+>
 
-## 📋 Checklist de Calidad y Definition of Done (DoD)
+## 🔗 Trazabilidad
 
-Antes de solicitar revisión, marca las casillas que certifiquen el cumplimiento de estándares:
+- Item `TR-` afectado (`docs/traceability.json`): <!-- ej. TR-021, o "nuevo" -->
+- Issue / ADR relacionado: <!-- ej. Closes #12, ADR 003 -->
 
-- [ ] **Formato:** Se ejecutó `gofmt -l .` y no existen inconsistencias de espaciado o formato.
-- [ ] **Concurrencia:** Los tests se ejecutaron con `-race` (`go test -v -race ./...`) y pasaron con 0 condiciones de carrera.
-- [ ] **Compilación:** Se validó la compilación limpia en entornos locales (`go build ./...`).
-- [ ] **Sin Hardcoding:** No se agregaron versiones fijas en código fuente; se delega a Git Tags y LDFLAGS.
-- [ ] **Arquitectura Limpia:**
-  - [ ] No se introdujeron paquetes genéricos prohibidos (`core`, `utils`, `types`, `common`).
-  - [ ] Las dependencias internas apuntan al modelo de dominio (`internal/domain`) sin ciclos.
-  - [ ] Las interfaces son consumidas donde se definen (*Consumer-Driven Interfaces*).
-- [ ] **Documentación:** Se actualizaron los archivos en `docs/` o README si el cambio impacta el uso o diseño.
+## ✅ Checklist
 
----
+- [ ] `gofmt -l .` no imprime nada
+- [ ] `go test -race ./...` pasa
+- [ ] `golangci-lint run` sin hallazgos
+- [ ] `go run scripts/gen-traceability.go -check` pasa (tabla regenerada si cambió el JSON)
+- [ ] Sin versiones fijas en el código (la versión sale del tag y de LDFLAGS)
+- [ ] Respeta la arquitectura (`internal/domain` sin dependencias hacia afuera; plugins no importan `kernel` ni `tui`)
+- [ ] Docs actualizadas si cambia el uso o el diseño
 
-## 🧪 Instrucciones de Prueba y Verificación
+## 🧪 Cómo probarlo
 
-<!-- Detalla los pasos para reproducir o verificar los cambios introducidos localmente -->
-
-1. Descargar dependencias: `go mod download`
-2. Ejecutar suite de pruebas: `go test -v -race ./...`
-3. Probar ejecución CLI:
-   ```bash
-   go run ./cmd/moofetch --demo
-   ```
-
----
-
-## 📷 Capturas o Evidencias (Opcional)
-
-<!-- Si aplica (ej. mejoras en la TUI Bubble Tea o salidas CLI), adjunta capturas o logs -->
+<!-- Pasos para verificar localmente. Ej.: `go run ./cmd/moofetch run --demo -o /tmp/out`. Adjunta capturas si cambia la TUI. -->

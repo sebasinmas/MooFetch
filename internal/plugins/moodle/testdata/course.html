@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html><head><title>Curso: Cálculo I</title></head>
+<body class="path-course-view">
+<nav><a href="/my/">Panel</a> <a href="/user/profile.php?id=7">Perfil</a></nav>
+<ul class="topics">
+<li id="section-1"><h3>Unidad 1</h3>
+ <ul>
+  <li class="activity resource">
+   <a class="aalink" href="/mod/resource/view.php?id=101"><img src="/theme/image.php/icon.svg" alt=""><span class="instancename">Apunte   1.1
+     <span class="accesshide "> Archivo</span></span></a>
+  </li>
+  <li class="activity resource">
+   <a class="aalink" href="http://HOST/mod/resource/view.php?id=102#intro"><span class="instancename">Guía 2 <span class="accesshide"> Archivo</span></span></a>
+  </li>
+  <li class="activity folder">
+   <a class="aalink" href="/mod/folder/view.php?id=201"><span class="instancename">Material extra <span class="accesshide"> Carpeta</span></span></a>
+  </li>
+  <li><a href="/pluginfile.php/55/mod_resource/content/1/Pauta%20Control.pdf?forcedownload=1">Pauta Control</a></li>
+ </ul>
+</li>
+<li id="section-2"><h3>Unidad 2</h3>
+  <!-- duplicate of resource 101 with a different title: first one wins -->
+  <a href="/mod/resource/view.php?id=101"><span class="instancename">Apunte duplicado</span></a>
+  <!-- not downloadable / no id / off-host -->
+  <a href="/mod/forum/view.php?id=300">Foro</a>
+  <a href="/mod/resource/view.php">Sin id</a>
+  <a href="/mod/folder/view.php?id=">Carpeta sin id</a>
+  <a href="https://evil.example.org/mod/resource/view.php?id=999">Otro host</a>
+  <a href="https://evil.example.org/pluginfile.php/1/x.pdf">Otro host pluginfile</a>
+  <a href="mailto:profe@example.org">Correo</a>
+  <a>Ancla sin href</a>
+  <a href="">Href vacío</a>
+  <a href="/pluginfile.php/55/mod_resource/content/1/Imagen.png"><img src="/x.png" alt="x"></a>
+  <a href="/mod/folder/view.php?id=202"><span class="instancename">Carpeta B</span></a>
+</li>
+</ul>
+</body></html>

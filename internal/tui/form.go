@@ -113,8 +113,6 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 		rawURLs string
 	)
 
-	theme := huh.ThemeCharm()
-
 	cookieValidator := func(s string) error {
 		if strings.TrimSpace(s) == "" {
 			return errors.New("la cookie de sesión no puede estar vacía")
@@ -175,7 +173,7 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 		cookie = preCookie
 		groups = []*huh.Group{step2}
 	}
-	form := huh.NewForm(groups...).WithTheme(theme)
+	form := newForm(groups...)
 
 	return &FormController{
 		Form: form,
@@ -203,7 +201,7 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 // RunInteractiveForm launches the startup splash screen and seamlessly transitions
 // into the 2-step Huh form using Bubble Tea.
 func RunInteractiveForm(isDemo ...bool) (*FormData, error) {
-	return runForm(NewInteractiveForm(isDemo...))
+	return runForm(NewInteractiveForm(isDemo...), true)
 }
 
 // testInput, when non-nil, supplies a fresh input reader for every interactive
@@ -218,7 +216,32 @@ func programOptions() []tea.ProgramOption {
 	return []tea.ProgramOption{tea.WithInput(testInput()), tea.WithOutput(io.Discard)}
 }
 
-func runForm(ctrl *FormController) (*FormData, error) {
+// runHuh runs a huh form on its own (no splash), mapping a user abort to
+// ErrFormAborted and honoring the test input seam.
+func runHuh(form *huh.Form) error {
+	if testInput != nil {
+		form = form.WithInput(testInput()).WithOutput(io.Discard)
+	}
+	if err := form.Run(); err != nil {
+		if errors.Is(err, huh.ErrUserAborted) {
+			return ErrFormAborted
+		}
+		return err
+	}
+	return nil
+}
+
+// runForm runs the form. With withSplash the logo is shown first inside the
+// same Bubble Tea program; without it the form runs on its own (used after the
+// auth step, which already showed the splash).
+func runForm(ctrl *FormController, withSplash bool) (*FormData, error) {
+	if !withSplash {
+		if err := runHuh(ctrl.Form); err != nil {
+			return nil, err
+		}
+		return ctrl.GetData(), nil
+	}
+
 	splash := NewSplash(ctrl.Form)
 
 	p := tea.NewProgram(splash, programOptions()...)
@@ -237,6 +260,7 @@ func runForm(ctrl *FormController) (*FormData, error) {
 // It trims whitespace, removes surrounding quotes, strips leading "Cookie:" prefix,
 // handles colon separators (e.g. MoodleSession:"..."), eliminates duplicate prefixes,
 // and if a raw token without key=value is supplied, prefixes "MoodleSession=".
+// A name without a value ("MoodleSession=") yields an empty string.
 func NormalizeCookie(raw string) string {
 	c := strings.TrimSpace(raw)
 	c = strings.Trim(c, `"' `)
@@ -265,6 +289,11 @@ func NormalizeCookie(raw string) string {
 			for strings.HasPrefix(strings.ToLower(val), "moodlesession=") || strings.HasPrefix(strings.ToLower(val), "moodlesession:") {
 				val = strings.Trim(strings.TrimSpace(val[14:]), `"' `)
 			}
+		}
+		if val == "" {
+			// A name without a value (e.g. "MoodleSession=") carries no
+			// credential; treat it like empty input.
+			return ""
 		}
 		c = name + "=" + val
 	} else if c != "" {

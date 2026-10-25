@@ -2,6 +2,8 @@
 package moodle
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,6 +28,9 @@ var (
 	ErrAuthenticationFailed = fmt.Errorf("%w: invalid or expired session cookie", domain.ErrAuthenticationFailed)
 	// ErrUnexpectedStatus indicates non-2xx HTTP status.
 	ErrUnexpectedStatus = errors.New("unexpected HTTP response status")
+	// ErrNotPDF indicates a body served for a .pdf file that lacks the PDF magic
+	// number, typically an HTML login page returned with HTTP 200.
+	ErrNotPDF = errors.New("response body is not a PDF")
 	// ErrInactivityTimeout indicates stream stalled without receiving data within the timeout window.
 	ErrInactivityTimeout = errors.New("download stream stalled: inactivity timeout exceeded")
 )
@@ -242,9 +247,14 @@ func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain
 		timeout = 30 * time.Second
 	}
 	streamReader := newIdleTimeoutReader(resp.Body, resp.Body, timeout)
-	bytesWritten, err := writeStreamToFile(streamReader, targetPath, resp.ContentLength, task, filename, progress)
+	body, err := requirePDFMagic(streamReader, filename, resp.Header.Get("Content-Type"))
 	if err != nil {
-		_ = os.Remove(targetPath)
+		return nil, err
+	}
+	// On failure writeStreamToFile removes its own .part file; a previously
+	// downloaded file with the same name is never touched.
+	bytesWritten, err := writeStreamToFile(body, targetPath, resp.ContentLength, task, filename, progress)
+	if err != nil {
 		return nil, err
 	}
 
@@ -256,6 +266,27 @@ func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain
 		TotalBytes: resp.ContentLength,
 		Err:        nil,
 	}, nil
+}
+
+// pdfMagic is the signature every PDF file starts with.
+var pdfMagic = []byte("%PDF-")
+
+// requirePDFMagic guards .pdf downloads against bodies that are not PDFs, such
+// as an HTML login page served with HTTP 200 after the session expired. Other
+// file types pass through untouched. The inspected bytes are not consumed.
+func requirePDFMagic(r io.Reader, filename, contentType string) (io.Reader, error) {
+	if !strings.EqualFold(filepath.Ext(filename), ".pdf") {
+		return r, nil
+	}
+	br := bufio.NewReaderSize(r, 32*1024)
+	head, err := br.Peek(len(pdfMagic))
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("stream read error: %w", err)
+	}
+	if !bytes.Equal(head, pdfMagic) {
+		return nil, fmt.Errorf("%w: %q has content type %q and does not start with %%PDF- (expired session?)", ErrNotPDF, filename, contentType)
+	}
+	return br, nil
 }
 
 func checkResponseStatus(resp *http.Response) error {
