@@ -462,26 +462,3 @@ func isMeaningfulFilename(name string) bool {
 	}
 	return strings.Contains(clean, ".")
 }
-
-func sanitizeFilename(name string) string {
-	cleaned := filepath.Base(filepath.Clean(name))
-	cleaned = strings.Trim(cleaned, `"' `)
-	// Replace problematic path characters
-	replacer := strings.NewReplacer(
-		"/", "_",
-		"\\", "_",
-		":", "_",
-		"*", "_",
-		"?", "_",
-		"\"", "_",
-		"<", "_",
-		">", "_",
-		"|", "_",
-		"\x00", "",
-	)
-	cleaned = replacer.Replace(cleaned)
-	if cleaned == "" || cleaned == "." {
-		return "download.pdf"
-	}
-	return cleaned
-}
