@@ -85,9 +85,32 @@ Flujo: `feature/*` (o `fix/*`) → `develop` → `main`. Cada paso entra por PR 
 - **Regla:** todo cambio que se fusione debe añadir o actualizar su item `TR-` en [`traceability.json`](traceability.json) y regenerar la tabla con `go run scripts/gen-traceability.go` (ver [traceability.md](traceability.md), que también explica cómo generar patchnotes). CI lo verifica con `-check`.
 - La plantilla de PR (`.github/pull_request_template.md`) pide el tipo de cambio, el item `TR-` afectado y una nota de versión de una línea.
 
+### Probar en Windows antes de un tag
+**Por qué:** por decisión del proyecto **no hay jobs de Windows ni macOS en GitHub Actions** (para no consumir los límites de minutos). Desarrollamos en Linux, así que la verificación en Windows real es manual y se hace **antes de cada tag de versión**. En CI solo se comprueba que todo *compila* para Windows: el job `build-dry-run` compila `cmd/moofetch` para linux/amd64, windows/amd64, darwin/amd64 y darwin/arm64 y ejecuta `GOOS=windows GOARCH=amd64 go vet ./...` (`go vet` también compila los tests, incluidos `*_windows_test.go` y los `//go:build windows`), por lo que los errores de compilación o de build tags en Windows se detectan sin runner de Windows. Lo que CI **no** puede detectar es el comportamiento en ejecución (archivos bloqueados por el navegador, cifrado de cookies, rutas, etc.): para eso sirve esta prueba.
+
+**Pasos** (en Linux, desde cualquier directorio del repo, en el commit que se va a taguear):
+
+```bash
+bash scripts/build-windows-test.sh     # genera dist-test/ (ignorada por git)
+```
+
+1. El script compila `dist-test/moofetch.exe` (windows/amd64, versión `windows-test-<sha>`) y, por cada paquete con tests (también los que solo existen en Windows), un `<paquete>.test.exe` en su subcarpeta (p. ej. `dist-test/internal/auth/auth.test.exe`) junto con su `testdata/`. Detecta solos los `*_windows_test.go` nuevos. No hace falta Go en el PC con Windows.
+2. Copia **toda** la carpeta `dist-test/` al PC con Windows (pendrive, red, etc.) conservando la estructura, y sigue `dist-test/LEEME.txt`. En PowerShell:
+
+   ```powershell
+   .\moofetch.exe --version
+   .\moofetch.exe doctor --uni ufro
+   Get-ChildItem -Recurse -Filter *.test.exe | ForEach-Object { Push-Location $_.DirectoryName; & $_.FullName -test.v; Pop-Location }
+   ```
+
+3. **Qué reportar:** la tabla completa de `doctor` (no muestra valores de cookies, es seguro pegarla), los nombres de los tests que fallen (`--- FAIL: ...`) con su paquete y mensaje, y la versión de Windows y navegadores (si estaban abiertos). Nunca pegues cookies ni tokens.
+
+**Regla:** **no se crea ningún tag de versión sin esta verificación manual en Windows** (trazabilidad TR-035). Si algo falla, se corrige y se repite la prueba con un `dist-test/` regenerado antes de taguear.
+
 ## 5. Buenas prácticas
 - **Título de PR y commits con Conventional Commits**: `<tipo>(<scope>)<!>: <descripción>`, con tipos `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`, `ci`, `build`, `deps`, `security`, `style`; `!` marca un cambio incompatible. El título alimenta las notas de la Release y lo valida CI (`pr-title.yml`). Ver [CONTRIBUTING.md](../CONTRIBUTING.md).
 - Tags semánticos `vMAJOR.MINOR.PATCH`; `-rc1`/`-beta1` se publican como prerelease (`prerelease: auto`).
 - Trabajar en ramas, abrir PR y solo taguear desde `main` con CI en verde. El toolchain requerido es Go 1.24+ (ver `go.mod`).
+- **Ningún tag de versión sin probar en Windows**: antes de taguear, ejecutar `bash scripts/build-windows-test.sh`, probar `dist-test/` en un PC con Windows y reportar el resultado (ver «Probar en Windows antes de un tag», TR-035). CI no tiene runner de Windows; solo verifica que compile (`GOOS=windows go vet ./...`).
 - Nunca commitear cookies ni logs de depuración (`moofetch_debug.txt`); los binarios y `dist/` están en `.gitignore`.
 - Ejecutar `gofmt -l .`, `golangci-lint run` y `go test -race ./...` antes de la PR; los tres corren también en CI.
