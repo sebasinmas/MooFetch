@@ -1,5 +1,5 @@
 # TASK-10: Spike de la API móvil de Moodle (compuerta G-API-0)
-- **Estado:** Pendiente — lo ejecuta el dueño
+- **Estado:** Hecho (2026-10-25) — resultado favorable; diseño en [ADR 006](../adr/006-autenticacion-api-movil.md)
 - **Referencia:** TR-036 en [traceability.md](../traceability.md)
 
 ## Objetivo
@@ -22,3 +22,14 @@ Copia solo las líneas `RESULTADO` (nunca un token ni tu contraseña).
 | Paso 2 `OK` pero una función `NO DISPONIBLE` | Se ve qué funciones faltan y se decide el alcance. |
 
 Referencia de lo ya comprobado sin credenciales (2026-10-25): `login/token.php` responde JSON en `campusvirtual.ufro.cl`, lo que indica que los servicios web están activos.
+
+## Resultado (2026-10-25, campusvirtual.ufro.cl)
+| Paso | Resultado |
+| :--- | :--- |
+| `login/token.php` (usuario y contraseña) | Token recibido: el login directo funciona (no es SSO puro). |
+| `core_webservice_get_site_info` | OK, **Moodle 3.5.4+ (build 20190215)**. |
+| `core_enrol_get_users_courses`, `core_course_get_contents` | Disponibles. |
+| Cursos del usuario | 10. |
+| Primer curso (`core_course_get_contents`) | 5 secciones, 41 módulos, 8 archivos. |
+
+Conclusión: la entrada por API móvil es viable en este campus y pasa a ser la opción por defecto del asistente. Ojo con la versión: Moodle 3.5 es antiguo, las pruebas del cliente deben usar respuestas de esa forma.
