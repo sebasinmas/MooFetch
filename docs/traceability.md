@@ -44,6 +44,7 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-023 | Ayuda de la CLI legible: flags agrupadas, códigos de salida y pipeline compartido | 2026-10-24 | implementado | `develop` / `75410f2` | v2.0.0 |
 | TR-024 | Patchnotes legibles en GitHub: changelog agrupado y validación de títulos de PR | 2026-10-24 | implementado | `develop` / `e821d2f` | v2.0.0 |
 | TR-025 | Asistente interactivo: elegir recursos escaneados en vez de pegar enlaces | 2026-10-24 | implementado | `develop` / `51e556f` | v2.0.0 |
+| TR-026 | Modo --demo guiado y cinta VHS para el video del README | 2026-10-25 | en proceso | `feature/demo-vhs` / `57549aa` | — |
 <!-- END TABLE -->
 
 ## Notas
