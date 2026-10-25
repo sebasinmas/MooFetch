@@ -23,7 +23,11 @@ func TestClassifyError(t *testing.T) {
 		{"sqlite locked", errors.New("database is locked"), OutcomeLocked},
 		{"v20", errors.New("decrypting cookie: unsupported v20 App-Bound Encryption (requires elevated COM access)"), OutcomeEncrypted},
 		{"app-bound only", errors.New("App-Bound encryption"), OutcomeEncrypted},
-		{"encrypted wins over lock text", errors.New("v20 database is locked"), OutcomeEncrypted},
+		{"lock wins over encrypted text", errors.New("unsupported v20 App-Bound Encryption; database is locked"), OutcomeLocked},
+		{"v20 in a Firefox profile path is not encryption", errors.New("open /x/k3v20abc.default/cookies.sqlite: database is locked"), OutcomeLocked},
+		{"v20 in a path alone is unreadable", errors.New("open /x/k3v20abc.default/cookies.sqlite: file is corrupt"), OutcomeUnreadable},
+		{"bare v20 is not encryption", errors.New("v20"), OutcomeUnreadable},
+		{"app-bound is case insensitive", errors.New("app-bound encryption"), OutcomeEncrypted},
 		{"timeout", errStoreTimeout, OutcomeUnreadable},
 		{"anything else", errors.New("malformed database"), OutcomeUnreadable},
 	}

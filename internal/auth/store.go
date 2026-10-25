@@ -18,9 +18,27 @@ import (
 // It is a variable so tests can shrink it.
 var storeTimeout = 8 * time.Second
 
+// scanBudget bounds the whole search over all browsers, so several slow
+// stores cannot add up to a long wait. Once spent, the store being read and
+// the remaining ones are reported and the search ends with what it has.
+// It is a variable so tests can shrink it.
+var scanBudget = 30 * time.Second
+
+// kookyTraverse is the seam over kooky's store discovery; tests replace it.
+var kookyTraverse = kooky.TraverseCookieStores
+
 const unknownBrowser = "(navegador desconocido)"
 
-var errInternalRead = errors.New("error interno al leer el almacén de cookies")
+var (
+	errInternalRead = errors.New("error interno al leer el almacén de cookies")
+	errScanBudget   = errors.New("tiempo total agotado leyendo los navegadores")
+)
+
+// safeClose closes s, containing any panic.
+func safeClose(s storeReader) {
+	defer func() { _ = recover() }()
+	_ = s.Close()
+}
 
 // storeReader is one browser profile we can read cookies from. The kooky
 // stores (Chromium family, Safari...) and our own Firefox profiles implement it.
@@ -94,7 +112,7 @@ func yieldFirefoxProfiles(yield func(storeReader, error) bool) (covered map[stri
 // yieldKookyStores yields the stores kooky finds, except Firefox profiles
 // that are in covered.
 func yieldKookyStores(ctx context.Context, covered map[string]bool, yield func(storeReader, error) bool) {
-	for s, err := range kooky.TraverseCookieStores(ctx) {
+	for s, err := range kookyTraverse(ctx) {
 		if err != nil {
 			if !yield(nil, err) {
 				return
@@ -105,7 +123,7 @@ func yieldKookyStores(ctx context.Context, covered map[string]bool, yield func(s
 			continue
 		}
 		if strings.EqualFold(s.Browser(), "firefox") && covered[filepath.Clean(filepath.Dir(s.FilePath()))] {
-			_ = s.Close()
+			safeClose(kookyStore{s})
 			continue
 		}
 		if !yield(kookyStore{s}, nil) {
@@ -125,16 +143,24 @@ type storeItem struct {
 // Closing done stops the producer; stores it never delivered are closed.
 func discoverStores(ctx context.Context) (<-chan storeItem, func()) {
 	ctx, cancel := context.WithCancel(ctx)
-	seq := listStores(ctx)
+	list := listStores
 	items := make(chan storeItem)
 	go func() {
 		defer close(items)
-		for s, err := range seq {
+		defer func() {
+			if recover() != nil { // a panic in a finder must not kill the process; never echo its value
+				select {
+				case items <- storeItem{err: errInternalRead}:
+				case <-ctx.Done():
+				}
+			}
+		}()
+		for s, err := range list(ctx) {
 			select {
 			case items <- storeItem{store: s, err: err}:
 			case <-ctx.Done():
 				if s != nil {
-					_ = s.Close()
+					safeClose(s)
 				}
 				return
 			}
@@ -156,16 +182,10 @@ type readOutcome struct {
 func readStoreTimed(ctx context.Context, s storeReader, filter kooky.Filter) readOutcome {
 	rctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	done := make(chan readOutcome, 1)
+	done := make(chan readOutcome, 1) // buffered: an abandoned reader never blocks on it
 	go func() {
-		defer func() { _ = s.Close() }()
-		defer func() {
-			if recover() != nil { // never echo the panic value: it could hold cookie data
-				done <- readOutcome{strategy: StrategyNone, err: errInternalRead}
-			}
-		}()
-		cookies, strategy, err := s.Read(rctx, filter)
-		done <- readOutcome{cookies: cookies, strategy: strategy, err: err}
+		done <- safeRead(rctx, s, filter)
+		safeClose(s) // after the send: a slow Close must not delay the result
 	}()
 	timer := time.NewTimer(storeTimeout)
 	defer timer.Stop()
@@ -177,6 +197,18 @@ func readStoreTimed(ctx context.Context, s storeReader, filter kooky.Filter) rea
 	case <-ctx.Done():
 		return readOutcome{strategy: StrategyNone, err: ctx.Err()}
 	}
+}
+
+// safeRead calls s.Read containing any panic. The panic value is never
+// echoed: it could hold cookie data.
+func safeRead(ctx context.Context, s storeReader, filter kooky.Filter) (o readOutcome) {
+	defer func() {
+		if recover() != nil {
+			o = readOutcome{strategy: StrategyNone, err: errInternalRead}
+		}
+	}()
+	cookies, strategy, err := s.Read(ctx, filter)
+	return readOutcome{cookies: cookies, strategy: strategy, err: err}
 }
 
 // sessionFilter keeps MoodleSession[suffix] cookies that apply to domain.
@@ -215,7 +247,9 @@ func buildReport(s storeReader, o readOutcome, now time.Time) (StoreReport, *koo
 		r.Strategy = StrategyNone
 	}
 	if best := newest(o.cookies, now); best != nil {
-		r.Outcome = OutcomeFound
+		// Err may still hold a secondary problem (for example a temporary
+		// copy that could not be deleted); it is diagnostic only.
+		r.Outcome, r.Err = OutcomeFound, o.err
 		return r, best
 	}
 	if o.err != nil {
@@ -238,37 +272,59 @@ func discoveryReport(err error) (StoreReport, bool) {
 }
 
 // scan reads every store sequentially and returns one report per store plus
-// the newest usable cookie found. Errors of one store never stop the others.
+// the newest usable cookie found. Errors of one store never stop the others,
+// and the whole search is bounded by scanBudget.
 func scan(ctx context.Context, domain string) ([]StoreReport, *kooky.Cookie) {
 	filter := sessionFilter(domain)
-	items, stop := discoverStores(ctx)
+	bctx, cancel := context.WithTimeout(ctx, scanBudget)
+	defer cancel()
+	items, stop := discoverStores(bctx)
 	defer stop()
 	var (
 		reports []StoreReport
 		best    *kooky.Cookie
 	)
-	for ctx.Err() == nil {
-		it, ok, timedOut := nextStore(ctx, items)
+	for bctx.Err() == nil {
+		it, ok, timedOut := nextStore(bctx, items)
 		if timedOut {
-			reports = append(reports, StoreReport{Browser: "(búsqueda de navegadores)", Outcome: OutcomeUnreadable, Strategy: StrategyNone, Err: errStoreTimeout})
+			reports = append(reports, failureReport("(búsqueda de navegadores)", errStoreTimeout))
 		}
 		if !ok {
 			break
 		}
-		if it.store == nil {
-			if r, keep := discoveryReport(it.err); keep {
-				reports = append(reports, r)
-			}
-			continue
+		rep, c, keep := visit(bctx, it, filter)
+		if keep {
+			reports = append(reports, rep)
 		}
-		now := time.Now()
-		rep, c := buildReport(it.store, readStoreTimed(ctx, it.store, filter), now)
-		reports = append(reports, rep)
 		if c != nil && (best == nil || c.Creation.After(best.Creation)) {
 			best = c
 		}
 	}
+	if ctx.Err() == nil && bctx.Err() != nil { // our budget ran out, not the caller's context
+		reports = append(reports, failureReport("(navegadores restantes)", errScanBudget))
+	}
 	return reports, best
+}
+
+// visit handles one discovered item. keep is false when the item is not worth
+// a report. If the scan budget ends while reading, the store is reported with
+// errScanBudget instead of a bare "deadline exceeded".
+func visit(ctx context.Context, it storeItem, filter kooky.Filter) (rep StoreReport, c *kooky.Cookie, keep bool) {
+	if it.store == nil {
+		rep, keep = discoveryReport(it.err)
+		return rep, nil, keep
+	}
+	o := readStoreTimed(ctx, it.store, filter)
+	if errors.Is(o.err, context.DeadlineExceeded) {
+		o.err = errScanBudget
+	}
+	rep, c = buildReport(it.store, o, time.Now())
+	return rep, c, true
+}
+
+// failureReport is a report for a problem that has no store identity.
+func failureReport(browser string, err error) StoreReport {
+	return StoreReport{Browser: browser, Outcome: OutcomeUnreadable, Strategy: StrategyNone, Err: err}
 }
 
 // nextStore waits for the next discovered store. ok is false when discovery

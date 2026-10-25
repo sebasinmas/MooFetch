@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"iter"
+	"os"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,6 +20,8 @@ type fakeStore struct {
 	err              error
 	hang             bool // blocks until the read context is cancelled
 	boom             bool // panics inside Read
+	boomClose        bool // panics inside Close
+	release          chan struct{}
 	closed           atomic.Int32
 }
 
@@ -26,10 +30,17 @@ func (f *fakeStore) Profile() string { return f.profile }
 
 func (f *fakeStore) Close() error {
 	f.closed.Add(1)
+	if f.boomClose {
+		panic("close exploded")
+	}
 	return nil
 }
 
 func (f *fakeStore) Read(ctx context.Context, _ kooky.Filter) ([]*kooky.Cookie, Strategy, error) {
+	if f.release != nil { // ignores the context: only the test releases it
+		<-f.release
+		return nil, StrategyNone, errors.New("released")
+	}
 	if f.hang {
 		<-ctx.Done()
 		return nil, StrategyNone, ctx.Err()
@@ -90,4 +101,17 @@ func ck(val string, created time.Time, expires time.Time) *kooky.Cookie {
 	c := &kooky.Cookie{}
 	c.Name, c.Value, c.Creation, c.Expires = CookieName, val, created, expires
 	return c
+}
+
+// TestMain keeps the temporary-copy folders of the whole package in one
+// private folder, so tests never touch (or sweep) the real temp directory.
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "auth-test-")
+	if err != nil {
+		panic(err)
+	}
+	tempBase = func() string { return dir }
+	code := m.Run()
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
 }

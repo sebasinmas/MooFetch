@@ -106,13 +106,12 @@ type profileRead struct {
 // has every file) and is ignored.
 func (p *profileRead) add(cookies []*kooky.Cookie, strategy Strategy, err error) {
 	p.cookies = append(p.cookies, cookies...)
-	if err != nil {
-		if p.err == nil && !errors.Is(err, fs.ErrNotExist) {
-			p.err = err
-		}
-		return
+	if err != nil && p.err == nil && !errors.Is(err, fs.ErrNotExist) {
+		p.err = err
 	}
-	if strategy == StrategyCopy || p.strategy == StrategyNone {
+	// A strategy other than none means the data was read (the error, if any,
+	// is secondary, like a temporary copy that could not be deleted).
+	if strategy != StrategyNone && (strategy == StrategyCopy || p.strategy == StrategyNone) {
 		p.strategy = strategy
 	}
 }
@@ -140,12 +139,13 @@ func (p firefoxProfile) Read(ctx context.Context, filter kooky.Filter) ([]*kooky
 // fs.ErrNotExist (the caller ignores it).
 func readSessionFile(ctx context.Context, path string, filter kooky.Filter) ([]*kooky.Cookie, Strategy, error) {
 	raw, strategy, err := readFileResilient(ctx, path)
-	if err != nil {
+	if strategy == StrategyNone {
 		return nil, strategy, err
 	}
+	cleanupErr := err // data was read; only deleting the temporary copy failed
 	data, err := decodeMozLz4(raw)
 	if err != nil {
-		return nil, strategy, fmt.Errorf("sesión de Firefox ilegible (%s): %w", filepath.Base(path), err)
+		return nil, strategy, errors.Join(fmt.Errorf("sesión de Firefox ilegible (%s): %w", filepath.Base(path), err), cleanupErr)
 	}
 	var out []*kooky.Cookie
 	for _, c := range parseSessionCookies(data, fileModTime(path)) {
@@ -153,7 +153,7 @@ func readSessionFile(ctx context.Context, path string, filter kooky.Filter) ([]*
 			out = append(out, c)
 		}
 	}
-	return out, strategy, nil
+	return out, strategy, cleanupErr
 }
 
 // readSQLite reads cookies.sqlite through kooky (which opens the file sharing
@@ -179,7 +179,9 @@ var readSQLite = func(path string, filter kooky.Filter) ([]*kooky.Cookie, error)
 }
 
 // readSQLiteResilient reads cookies.sqlite: shared read with lock retries
-// first, then a temporary copy (with its -wal and -shm siblings).
+// first, then a temporary copy. If the cookies were read from the copy but the
+// copy could not be deleted, the cookies are returned together with the
+// cleanup error.
 func readSQLiteResilient(ctx context.Context, path string, filter kooky.Filter) ([]*kooky.Cookie, Strategy, error) {
 	var cookies []*kooky.Cookie
 	err := retryOnLock(ctx, func() error {
@@ -193,15 +195,17 @@ func readSQLiteResilient(ctx context.Context, path string, filter kooky.Filter) 
 	if !copyWorthTrying(ctx, err) {
 		return nil, StrategyNone, err
 	}
-	cerr := withTempCopy(ctx, path, []string{"-wal", "-shm"}, func(copyPath string) error {
+	read := false
+	cerr := withTempCopy(ctx, path, func(copyPath string) error {
 		var rerr error
 		cookies, rerr = readSQLite(copyPath, filter)
+		read = rerr == nil
 		return rerr
 	})
-	if cerr != nil {
-		return nil, StrategyNone, fmt.Errorf("%w; copia temporal: %v", err, cerr)
+	if read {
+		return cookies, StrategyCopy, cerr
 	}
-	return cookies, StrategyCopy, nil
+	return nil, StrategyNone, fmt.Errorf("%w; copia temporal: %v", err, cerr)
 }
 
 func fileModTime(path string) time.Time {

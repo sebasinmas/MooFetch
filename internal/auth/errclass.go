@@ -42,10 +42,12 @@ func isLockError(err error) bool {
 	return false
 }
 
-// isEncryptedError reports Chrome/Edge "v20" App-Bound Encryption errors.
+// isEncryptedError reports Chrome/Edge "v20" App-Bound Encryption errors. It
+// matches kooky's phrases, not a bare "v20": that text can appear in file
+// paths (Firefox profile folders have random names).
 func isEncryptedError(err error) bool {
-	msg := err.Error()
-	return strings.Contains(msg, "v20") || strings.Contains(msg, "App-Bound")
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "app-bound") || strings.Contains(msg, "unsupported v20")
 }
 
 // classifyError maps a read error to an Outcome. A nil error is not
@@ -56,10 +58,10 @@ func classifyError(err error) Outcome {
 		return OutcomeNoCookie
 	case errors.Is(err, fs.ErrNotExist):
 		return OutcomeMissing
+	case isLockError(err): // same priority as the hints: a closed browser can be fixed
+		return OutcomeLocked
 	case isEncryptedError(err):
 		return OutcomeEncrypted
-	case isLockError(err):
-		return OutcomeLocked
 	default:
 		return OutcomeUnreadable
 	}
