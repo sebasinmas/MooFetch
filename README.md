@@ -134,6 +134,21 @@ moofetch run --domain campus.miuniversidad.cl -f urls.txt
 </details>
 
 <details>
+<summary><b>¿No encuentra tu cookie? Ejecuta el diagnóstico</b></summary>
+
+```bash
+moofetch doctor --uni ufro
+```
+
+Revisa cada navegador y perfil instalados y muestra una tabla con `Navegador | Perfil | Resultado | Estrategia | Detalle`: si la cookie se encontró, si el navegador la protege con cifrado, si el archivo está en uso, si no hay sesión iniciada o si el navegador no está instalado. Al final resume cuántos almacenes tenían la cookie y te sugiere qué probar.
+
+- **No comparte secretos:** nunca imprime valores de cookies ni rutas completas, y no envía nada a ningún lado; todo ocurre en tu equipo.
+- Termina con código 0 aunque no encuentre la cookie (es solo un diagnóstico).
+- Si pides ayuda en un issue, **pega la tabla** completa: basta para saber qué pasó en tu equipo.
+
+</details>
+
+<details>
 <summary><b>Cookie a mano (10 segundos)</b></summary>
 
 1. Inicia sesión en tu campus con el navegador.
