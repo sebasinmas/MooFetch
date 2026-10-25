@@ -314,11 +314,11 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "fix/windows-support",
-      "commit": null,
+      "commit": "bbb2a8b",
       "version": null,
       "evidencia": [    "internal/auth/report.go",
           "internal/auth/kooky.go",
-          "cmd/moofetch/doctor.go"
+          "cmd/moofetch/doctor.go", "internal/auth/store.go"
       ]
   },
   {
@@ -328,7 +328,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "fix/windows-support",
-      "commit": null,
+      "commit": "bbb2a8b",
       "version": null,
       "evidencia": [    "internal/auth/firefox.go",
           "internal/auth/open_windows.go",
@@ -338,11 +338,11 @@
   {
       "id": "TR-031",
       "titulo": "Chrome y Edge en Windows: cookies cifradas (v20), mensaje claro y decisión de ruta",
-      "descripcion": "kooky no puede descifrar las cookies v20 de Chrome 127+ en Windows. MooFetch lo detecta, lo explica en una línea (usa Firefox o pega la cookie) y registra el detalle en el log. La solución de fondo es la autenticación por API móvil (TR-037).",
+      "descripcion": "kooky no puede descifrar las cookies v20 de Chrome 127+ en Windows. MooFetch lo detecta, lo explica en una línea (usa Firefox o pega la cookie) y deja el detalle técnico en moofetch doctor (sin valores de cookies). La solución de fondo es la autenticación por API móvil (TR-037).",
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "fix/windows-support",
-      "commit": null,
+      "commit": "bbb2a8b",
       "version": null,
       "evidencia": [    "internal/auth/kooky.go",
           "internal/tui/authstep.go"
@@ -355,7 +355,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "fix/windows-support",
-      "commit": null,
+      "commit": "5fe47b3",
       "version": null,
       "evidencia": [    ".goreleaser.yaml",
           "README.md",
@@ -369,7 +369,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "fix/windows-support",
-      "commit": null,
+      "commit": "2967581",
       "version": null,
       "evidencia": [    "scripts/build-windows-test.sh",
           "docs/workflow.md",
@@ -383,7 +383,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "fix/windows-support",
-      "commit": null,
+      "commit": "6133d21",
       "version": null,
       "evidencia": [    "internal/plugins/moodle/moodle.go"
       ]
