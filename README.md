@@ -87,8 +87,13 @@ moofetch --version
 Cada release incluye `checksums.txt` con el SHA-256 de los tres archivos (`MooFetch-Windows.zip`, `MooFetch-Linux.tar.gz` y `MooFetch-Mac.zip`). Descárgalo junto al tuyo, en la misma carpeta:
 
 ```bash
-sha256sum -c checksums.txt --ignore-missing     # Linux
-shasum -a 256 -c checksums.txt --ignore-missing # macOS
+sha256sum -c checksums.txt --ignore-missing                # Linux
+grep MooFetch-Mac.zip checksums.txt | shasum -a 256 -c -   # macOS (cambia el nombre si bajaste otro archivo)
+```
+
+```powershell
+# Windows: compara este valor con la línea de MooFetch-Windows.zip en checksums.txt
+(Get-FileHash .\MooFetch-Windows.zip -Algorithm SHA256).Hash
 ```
 
 </details>

@@ -44,7 +44,7 @@ Se dispara en **pull requests** hacia `main` y `develop`, y en los **push a `mai
 - `traceability`: `go run scripts/gen-traceability.go -check` (la tabla de `docs/traceability.md` debe estar al día).
 - `goreleaser-check`: `goreleaser check` sobre `.goreleaser.yaml` (no publica nada).
 - `test`: tests con `-race` + cobertura.
-- `build-dry-run`: compilación cruzada de prueba (linux/amd64, darwin/arm64, windows/amd64); espera a `lint`, `golangci-lint` y `test`.
+- `build-dry-run`: compilación cruzada de prueba (linux/amd64, windows/amd64, darwin/amd64 y darwin/arm64) más `go vet` para Windows; espera a `lint`, `golangci-lint` y `test`.
 
 Además `pr-title.yml` valida que el **título de la PR** sea un Conventional Commit (ver sección 5): con squash-merge ese título se convierte en la línea que aparece en las notas de la Release. Usa `pull_request` con permisos de solo lectura y un chequeo en bash, sin acciones de terceros.
 

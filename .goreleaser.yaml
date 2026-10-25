@@ -65,6 +65,7 @@ universal_binaries:
   - id: moofetch
     ids:
       - moofetch
+    name_template: moofetch # nombre del binario dentro del archivo de Mac
     replace: true
 
 # ------------------------------------------------------------------------------
@@ -169,12 +170,14 @@ release:
     - **Linux**: `MooFetch-Linux.tar.gz`
     - **Mac**: `MooFetch-Mac.zip` (binario universal: corre nativo en Mac Intel y con chip Apple)
 
-    **Verificar la descarga** (desde la carpeta donde guardaste el archivo y `checksums.txt`; `--ignore-missing` omite los archivos que no descargaste):
+    **Verificar la descarga** (desde la carpeta donde guardaste el archivo y `checksums.txt`):
 
     ```bash
-    sha256sum -c checksums.txt --ignore-missing      # Linux
-    shasum -a 256 -c checksums.txt --ignore-missing  # macOS
+    sha256sum -c checksums.txt --ignore-missing               # Linux (omite los archivos que no bajaste)
+    grep MooFetch-Mac.zip checksums.txt | shasum -a 256 -c -  # macOS
     ```
+
+    En Windows: `(Get-FileHash .\MooFetch-Windows.zip -Algorithm SHA256).Hash` y compara con `checksums.txt`.
   footer: |
     ---
     {{ if .PreviousTag -}}
