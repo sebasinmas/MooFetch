@@ -6,7 +6,7 @@
 *De un script interactivo a un motor CLI de grado empresarial para pipelines Unix, extensiones y GUIs.*
 
 [![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
-[![Version](https://img.shields.io/badge/Release-v1.1.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/MooFetch/releases)
+[![Version](https://img.shields.io/badge/Release-v2.0.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/MooFetch/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![POSIX Compliant](https://img.shields.io/badge/POSIX-Sysexits_Compliant-orange?style=for-the-badge&logo=linux)](https://pubs.opengroup.org/)
 
@@ -22,11 +22,11 @@ Al terminar el semestre en el **Campus Virtual de la Universidad de La Frontera 
 
 Las plataformas LMS implementan capas de autenticación con cookies temporales y redirecciones de seguridad (`HTTP 303 See Other` hacia `/login.php`). Estas protecciones rompen de inmediato a los gestores tradicionales como `wget` o `curl`, provocando descargas de archivos HTML corruptos de 2 KB en vez de los documentos deseados.
 
-## 🚀 La Solución: MooFetch v1.1.0
+## 🚀 La Solución: MooFetch v2.0.0
 
 **MooFetch** es un motor de descargas concurrente y de alto rendimiento escrito en Go. 
 
-En su versión **v1.1.0**, el proyecto evoluciona de un simple asistente interactivo a una **herramienta CLI de grado industrial construida sobre Cobra**, diseñada para operar indistintamente en consolas interactivas o como núcleo de automatización (*headless engine*). Inyecta credenciales en memoria, sortea redirecciones HTTP 303, aísla fallos de sesión con un *Circuit Breaker* inteligente y garantiza la integridad de tu disco mediante escrituras atómicas.
+En su versión **v2.0.0**, el asistente deja de pedirte enlaces: **lee la página de tu curso y te deja elegir por nombre qué descargar**. Sigue siendo una **herramienta CLI de grado industrial construida sobre Cobra**, diseñada para operar indistintamente en consolas interactivas o como núcleo de automatización (*headless engine*). Inyecta credenciales en memoria, sortea redirecciones HTTP 303, aísla fallos de sesión con un *Circuit Breaker* inteligente y garantiza la integridad de tu disco mediante escrituras atómicas.
 
 ---
 
@@ -35,6 +35,7 @@ En su versión **v1.1.0**, el proyecto evoluciona de un simple asistente interac
 - 🏎️ **Worker Pool Acotado y Concurrente:** Despacho paralelo mediante goroutines y canales acotados. Previene saturar tanto tu ancho de banda como los servidores institucionales.
 - 🛡️ **Escrituras Atómicas (`.part`)**: Cada archivo se descarga temporalmente con la extensión `.moofetch.part`. Si la descarga se cancela o falla a mitad de camino, el residuo se elimina automáticamente, garantizando que nunca queden PDFs incompletos o corruptos en disco.
 - ⚡ **Circuit Breaker ante Expiración de Sesión:** Si tu cookie caduca o es rechazada (HTTP 401, 403 o redirección a login), el motor aborta el lote completo instantáneamente (*fail-fast*), evitando cientos de peticiones infructuosas.
+- 🔎 **Escáner de cursos (`moofetch scan`):** Lee una página del curso con tu sesión y lista sus recursos (PDF, carpetas, archivos). Es amable con el servidor: peticiones de a una, con pausa, respetando `Retry-After`. En el asistente eliges por nombre qué descargar; en la terminal lo canalizas a `run`.
 - 🤖 **Modo Dual: TUI Rica y Headless POSIX:**
   - **Interactivo:** Asistente visual y barras de progreso reactivas desarrolladas con **Charmbracelet** (`bubbletea`, `huh`, `lipgloss`).
   - **Headless:** Detección automática de tuberías (`cat urls.txt | moofetch run`) con salida de progreso dirigida a `stderr` para no contaminar tus flujos Unix.
@@ -51,7 +52,7 @@ Descarga el ejecutable para tu plataforma (Linux, macOS o Windows) directamente 
 
 ```bash
 # Ejemplo en Linux / macOS:
-tar -xzf moofetch_v1.1.0_linux_amd64.tar.gz
+tar -xzf moofetch_2.0.0_linux_amd64.tar.gz
 sudo mv moofetch /usr/local/bin/
 ```
 
@@ -65,7 +66,7 @@ cd MooFetch
 
 # Compilar binario optimizado inyectando versión y commit
 go build -ldflags "-s -w \
-  -X main.Version=1.1.0 \
+  -X main.Version=2.0.0 \
   -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
   -X main.BuildDate=$(date +%Y-%m-%d)" \
   -o bin/moofetch ./cmd/moofetch
@@ -146,7 +147,7 @@ Flujo del asistente (cada decisión tiene su propia pantalla):
 
 ## ⚙️ Modo Headless y Pipelines Unix
 
-MooFetch v1.1.0 es un ciudadano de primera clase en el ecosistema POSIX. Detecta automáticamente si la entrada estándar (`stdin`) o la salida (`stdout`) están conectadas a una tubería, conmutando a modo headless de forma transparente.
+MooFetch es un ciudadano de primera clase en el ecosistema POSIX. Detecta automáticamente si la entrada estándar (`stdin`) o la salida (`stdout`) están conectadas a una tubería, conmutando a modo headless de forma transparente.
 
 ### Ejemplos en Tuberías (Pipes)
 
@@ -161,7 +162,13 @@ cat urls.txt | moofetch run -o ./apuntes_semestre -c 8
 # Filtrar URLs con grep y descargar en paralelo con bandera --file
 grep "pdf" historial_campus.txt > urls_pdf.txt
 moofetch run -k "$MOODLE_SESSION" -f urls_pdf.txt --concurrency 6
+
+# Listar los recursos de un curso (un enlace por línea en stdout) y descargarlos
+moofetch scan "https://campusvirtual.ufro.cl/course/view.php?id=123" --uni ufro > urls.txt
+moofetch run -f urls.txt --uni ufro -o ./apuntes
 ```
+
+`scan` pide las páginas de a una, con una pausa entre ellas (`--delay`, 1,5 s por defecto), respeta `Retry-After` y se detiene si tu sesión expiró. Los títulos van a `stderr`, así que `stdout` queda limpio para tuberías.
 
 > **Nota para Desarrolladores:** En modo headless, el registro de avance se transmite a **`stderr`** (`[1/10] ▶ Descargando...`), garantizando que **`stdout`** permanezca limpio para redirecciones de flujos o pipes hacia herramientas como `jq` o `awk`.
 
@@ -337,12 +344,13 @@ MooFetch está construido bajo el patrón **Microkernel Estático**:
 El estado detallado de cada funcionalidad (fecha, rama, commit y versión) está en [docs/traceability.md](docs/traceability.md).
 
 - [x] **v1.1.0:** Migración a Cobra, soporte Headless, escrituras atómicas, Circuit Breaker y códigos POSIX.
+- [x] **v2.0.0:** `moofetch scan` y selección de recursos por nombre en el asistente, una decisión por pantalla con el logo primero, ayuda de la CLI con flags agrupadas, teclas en español, patchnotes automáticos por GitHub Releases.
 - [x] **Selección de campus y autodetección de la cookie** (Chrome/Chromium/Edge/Opera/Brave vía kooky; verificación manual pendiente).
 - [x] **Autodetección en Firefox** (cookie de sesión desde la copia de la sesión): fusionada; verificación manual pendiente.
 - [ ] **Verificación manual por navegador:** Chrome, Edge, Opera, Firefox y Safari (solo macOS).
 - [ ] **Extensión de Navegador (Chrome MV3):** Captura de enlaces y sesión con un solo clic desde el Campus Virtual.
 - [ ] **Aplicación de Escritorio Multiplataforma (Tauri / Wails):** GUI visual que reutiliza el núcleo (kernel y dominio) de este proyecto.
-- [ ] **Soporte para Carpetas Moodle (`mod/folder`):** Extracción recursiva de archivos comprimidos o directorios completos.
+- [ ] **Carpetas Moodle (`mod/folder`) anidadas:** `scan` ya expande un nivel; falta la extracción recursiva y agrupar por carpeta en la selección.
 - [ ] **Plugins para Plataformas Adicionales:** Módulos para Canvas LMS y Blackboard Learn.
 - [ ] **Distribución en Gestores de Paquetes:** Soporte oficial para `brew`, `scoop`, `winget` y AUR.
 

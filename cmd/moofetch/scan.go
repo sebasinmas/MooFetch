@@ -18,7 +18,7 @@ var (
 
 var scanCmd = &cobra.Command{
 	Use:   "scan <url-de-pagina>",
-	Short: "Lista los recursos descargables de una página del campus (experimental)",
+	Short: "Lista los recursos descargables de una página del campus",
 	Long: `Lee una página del campus (curso o sección) con tu cookie de sesión y escribe en
 stdout un enlace de recurso por línea, listo para canalizar a "moofetch run".
 

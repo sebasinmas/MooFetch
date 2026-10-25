@@ -62,7 +62,7 @@
     "estado": "implementado",
     "rama": "develop",
     "commit": "7c20081",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["internal/auth/firefox.go", "internal/auth/kooky.go", "docs/adr/003-deteccion-automatica-de-token.md"]
   },
   {
@@ -158,10 +158,10 @@
     "titulo": "golangci-lint en CI",
     "descripcion": "Jobs de CI nuevos en ci.yml: golangci-lint (v2, config .golangci.yml), verificación de la tabla de trazabilidad y goreleaser check. Aún no se han ejecutado en GitHub; se verán en la PR a develop.",
     "fecha": "2026-10-24",
-    "estado": "en proceso",
-    "rama": "feature/tui-cli-scan-releases",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "e821d2f",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": [".golangci.yml", ".github/workflows/ci.yml", "docs/workflow.md"]
   },
   {
@@ -189,12 +189,12 @@
   {
     "id": "TR-018",
     "titulo": "Orden del flujo interactivo: logo, campus y consentimiento en pantallas separadas",
-    "descripcion": "Flujo: logo -> campus -> (dominio propio) -> consentimiento -> detección -> (cookie manual) -> enlaces. Cada decisión tiene su pantalla y el splash va primero, dentro del mismo programa Bubble Tea que el formulario de campus. Mensaje de cookie no encontrada: «No se ha encontrado la cookie ¿Ya iniciaste sesión en tu campus virtual?». Pendiente: verificación visual en un terminal real (TASK-09).",
+    "descripcion": "Flujo: logo -> campus -> (dominio propio) -> consentimiento -> detección -> (cookie manual) -> enlaces. Cada decisión tiene su pantalla y el splash va primero, dentro del mismo programa Bubble Tea que el formulario de campus. Mensaje de cookie no encontrada: «No se ha encontrado la cookie ¿Ya iniciaste sesión en tu campus virtual?».",
     "fecha": "2026-10-24",
-    "estado": "en proceso",
-    "rama": "feature/tui-cli-scan-releases",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "52df60b",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["internal/tui/authstep.go", "internal/tui/form.go", "internal/auth/kooky.go", "internal/auth/auth.go", "docs/tasks/TASK-09-orden-logo-campus.md"]
   },
   {
@@ -216,29 +216,29 @@
     "estado": "implementado",
     "rama": "develop",
     "commit": "1b006e8",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["cmd/moofetch/cookie_integration_test.go", "internal/plugins/moodle/integration_test.go", "internal/kernel/dispatch_moodle_integration_test.go", "internal/auth/cookie_format_test.go", "internal/plugins/moodle/moodle.go", "internal/tui/form.go"]
   },
   {
     "id": "TR-021",
-    "titulo": "Comando scan: listar recursos de una página del campus (experimental)",
-    "descripcion": "moofetch scan <url> lee una página de curso con la cookie y escribe un enlace de recurso por línea en stdout (se canaliza a run). Peticiones secuenciales con pausa y jitter, respeta Retry-After ante 429/503, tope de páginas y se detiene si la sesión expiró. Solo probado con servidores falsos; la prueba contra el campus real es TR-022.",
+    "titulo": "Comando scan: listar recursos de una página del campus",
+    "descripcion": "moofetch scan <url> lee una página de curso con la cookie y escribe un enlace de recurso por línea en stdout (se canaliza a run). Peticiones secuenciales con pausa y jitter, respeta Retry-After ante 429/503, tope de páginas y se detiene si la sesión expiró. Verificado por el dueño contra el campus real (TR-022).",
     "fecha": "2026-10-24",
-    "estado": "en proceso",
-    "rama": "feature/tui-cli-scan-releases",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "480c4a1",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["cmd/moofetch/scan.go", "internal/plugins/moodle/scan.go", "internal/plugins/moodle/scan_test.go", "docs/adr/005-scan-de-recursos.md"]
   },
   {
     "id": "TR-022",
     "titulo": "Verificación manual de scan contra el campus real",
-    "descripcion": "Ejecutar moofetch scan sobre un curso real (UFRO) con sesión iniciada y confirmar: enlaces presentes en el HTML sin JS, resource/view.php redirige a pluginfile.php, carpetas, y qué enlaces pluginfile no son material (avatares, imágenes). El resultado decide si scan se queda o se adelanta la extensión de navegador (TR-016). Ver ADR 005.",
-    "fecha": null,
-    "estado": "por implementar",
-    "rama": null,
+    "descripcion": "Verificado por el dueño el 2026-10-24: moofetch scan funcionó contra un curso real del campus (UFRO) y el asistente con selección de recursos también. Queda como mejora posible filtrar enlaces pluginfile que no sean material y avisar cuando --max-pages recorta la lista. Ver ADR 005.",
+    "fecha": "2026-10-24",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": null,
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["docs/adr/005-scan-de-recursos.md"]
   },
   {
@@ -246,10 +246,10 @@
     "titulo": "Ayuda de la CLI legible: flags agrupadas, códigos de salida y pipeline compartido",
     "descripcion": "--help en español con flags agrupadas (Entrada, Descarga, Sesión, Salida, Otros) y sección de códigos de salida; el comando raíz y run comparten collectURLs, resolveCookie y execute. Cambio de comportamiento: el comando raíz ahora normaliza -k igual que run. Los encabezados de la ayuda están en español (Uso:, Ejemplos:).",
     "fecha": "2026-10-24",
-    "estado": "en proceso",
-    "rama": "feature/tui-cli-scan-releases",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "75410f2",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["cmd/moofetch/help.go", "cmd/moofetch/input.go", "cmd/moofetch/root.go", "cmd/moofetch/run.go", "README.md"]
   },
   {
@@ -257,21 +257,21 @@
     "titulo": "Patchnotes legibles en GitHub: changelog agrupado y validación de títulos de PR",
     "descripcion": "GoReleaser reorganizado: grupos (incompatibles, feat, fix, seguridad, rendimiento, refactor, dependencias), header con verificación de checksums y footer con comparación de tags. Workflow que valida títulos de PR convencionales, plantilla de PR con nota de versión y CONTRIBUTING.md. Los workflows aún no se han ejecutado en GitHub.",
     "fecha": "2026-10-24",
-    "estado": "en proceso",
-    "rama": "feature/tui-cli-scan-releases",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "e821d2f",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": [".goreleaser.yaml", ".github/workflows/pr-title.yml", ".github/pull_request_template.md", "CONTRIBUTING.md", "docs/workflow.md"]
   },
   {
     "id": "TR-025",
     "titulo": "Asistente interactivo: elegir recursos escaneados en vez de pegar enlaces",
-    "descripcion": "El asistente pide la URL de una página del curso (el host debe ser el del campus elegido), la lee con el escáner mostrando un spinner y presenta los nombres de los recursos con todos marcados; Espacio desmarca, Ctrl+A alterna todos, / filtra. El pegado manual de enlaces queda como alternativa (URL vacía o escaneo fallido, incluida la sesión expirada) y es el único paso en --demo. El recuadro final «Considera comprarle un completo» es un hipervínculo OSC 8 a ko-fi.com/sebasinmas (toda la caja es clicable en terminales compatibles y la dirección se ve en texto). Todas las ayudas de teclado del pie de los formularios están en español (internal/tui/keymap.go). Pendiente: verlo en un terminal real contra el campus (TR-022).",
+    "descripcion": "El asistente pide la URL de una página del curso (el host debe ser el del campus elegido), la lee con el escáner mostrando un spinner y presenta los nombres de los recursos con todos marcados; Espacio desmarca, Ctrl+A alterna todos, / filtra. El pegado manual de enlaces queda como alternativa (URL vacía o escaneo fallido, incluida la sesión expirada) y es el único paso en --demo. El recuadro final «Considera comprarle un completo» es un hipervínculo OSC 8 a ko-fi.com/sebasinmas (toda la caja es clicable en terminales compatibles y la dirección se ve en texto). Todas las ayudas de teclado del pie de los formularios están en español (internal/tui/keymap.go). Verificado por el dueño en uso real.",
     "fecha": "2026-10-24",
-    "estado": "en proceso",
-    "rama": "feature/tui-cli-scan-releases",
+    "estado": "implementado",
+    "rama": "develop",
     "commit": "51e556f",
-    "version": null,
+    "version": "v2.0.0",
     "evidencia": ["internal/tui/scanstep.go", "internal/tui/scanstep_test.go", "internal/tui/keymap.go", "internal/tui/authstep.go", "cmd/moofetch/auth.go", "cmd/moofetch/scan.go", "docs/adr/005-scan-de-recursos.md"]
   }
 ]
