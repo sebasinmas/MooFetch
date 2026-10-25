@@ -31,8 +31,9 @@ func validateAuthFlag() error {
 // newMobileAPI builds the mobile-API client of one campus (siteURL is
 // "https://<host>"). The composition root wires the real client here; tests
 // replace it with fakes.
-var newMobileAPI = func(string) (moodle.MobileAPI, error) {
-	return nil, errors.New("API móvil no conectada")
+var newMobileAPI = func(siteURL string) (moodle.MobileAPI, error) {
+	moodle.UserAgentVersion = Version
+	return moodle.NewAPIClient(siteURL)
 }
 
 // apiAdapter adapts moodle.MobileAPI to the function types the wizard
