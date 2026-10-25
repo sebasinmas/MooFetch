@@ -2,228 +2,205 @@
 
 # 🐄 MooFetch
 
-**Descargas masivas, concurrentes y resilientes para Campus Virtual UFRO y plataformas Moodle.**  
-*De un script interactivo a un motor CLI de grado empresarial para pipelines Unix, extensiones y GUIs.*
+**Descarga todo el material de tu curso de Moodle en un par de clics.**  
+*Lee la página de tu curso, eliges por nombre qué quieres y MooFetch lo baja todo en paralelo.*
 
-[![Go Version](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
-[![Version](https://img.shields.io/badge/Release-v2.0.0-blueviolet?style=for-the-badge)](https://github.com/sebasinmas/MooFetch/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![POSIX Compliant](https://img.shields.io/badge/POSIX-Sysexits_Compliant-orange?style=for-the-badge&logo=linux)](https://pubs.opengroup.org/)
+[![CI](https://img.shields.io/github/actions/workflow/status/sebasinmas/MooFetch/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/sebasinmas/MooFetch/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/sebasinmas/MooFetch?style=for-the-badge&color=blueviolet)](https://github.com/sebasinmas/MooFetch/releases/latest)
+[![Descargas](https://img.shields.io/github/downloads/sebasinmas/MooFetch/total?style=for-the-badge&color=success)](https://github.com/sebasinmas/MooFetch/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/sebasinmas/MooFetch?style=for-the-badge&logo=go&logoColor=white&color=00ADD8)](https://golang.org)
+[![Licencia MIT](https://img.shields.io/github/license/sebasinmas/MooFetch?style=for-the-badge&color=green)](LICENSE)
 
-[Características](#-características-principales) • [Instalación](#-instalación) • [Inicio Rápido](#-inicio-rápido) • [Uso en Pipelines](#-modo-headless-y-pipelines-unix) • [Códigos de Salida](#-códigos-de-salida-posix) • [Arquitectura](#-arquitectura-del-sistema) • [Privacidad](#-privacidad-y-seguridad-garantizada) • [Roadmap](#-roadmap)
+<img src="docs/assets/demo.gif" alt="MooFetch en acción: elección de campus, lectura del curso, selección de recursos por nombre y descargas concurrentes" width="880">
+
+*Demostración simulada (`moofetch --demo`): muestra las mismas pantallas que la app real, sin red ni cookie.*
+
+[¿Por qué?](#-por-qué-moofetch) • [Instalación](#-instalación) • [Cómo usarlo](#-cómo-usarlo) • [Scripts y pipelines](#-scripts-y-pipelines) • [Privacidad](#-privacidad) • [Roadmap](#-roadmap) • [Para desarrolladores](#-para-desarrolladores)
 
 </div>
 
 ---
 
-## 💡 El Problema
+## 🎯 ¿Por qué MooFetch?
 
-Al terminar el semestre en el **Campus Virtual de la Universidad de La Frontera (UFRO)** o cualquier intranet universitaria impulsada por **Moodle**, los estudiantes y docentes se enfrentan al tedio de descargar decenas de presentaciones, guías y documentos PDF uno por uno. 
+Al terminar el semestre tienes decenas de PDFs repartidos por el campus virtual (UFRO o cualquier Moodle) y bajarlos uno por uno es tedioso. Y `wget` o `curl` no sirven: el campus pide sesión y redirige al login, así que terminas con archivos HTML corruptos de 2 KB en vez de tus documentos.
 
-Las plataformas LMS implementan capas de autenticación con cookies temporales y redirecciones de seguridad (`HTTP 303 See Other` hacia `/login.php`). Estas protecciones rompen de inmediato a los gestores tradicionales como `wget` o `curl`, provocando descargas de archivos HTML corruptos de 2 KB en vez de los documentos deseados.
+MooFetch resuelve eso:
 
-## 🚀 La Solución: MooFetch v2.0.0
-
-**MooFetch** es un motor de descargas concurrente y de alto rendimiento escrito en Go. 
-
-En su versión **v2.0.0**, el asistente deja de pedirte enlaces: **lee la página de tu curso y te deja elegir por nombre qué descargar**. Sigue siendo una **herramienta CLI de grado industrial construida sobre Cobra**, diseñada para operar indistintamente en consolas interactivas o como núcleo de automatización (*headless engine*). Inyecta credenciales en memoria, sortea redirecciones HTTP 303, aísla fallos de sesión con un *Circuit Breaker* inteligente y garantiza la integridad de tu disco mediante escrituras atómicas.
-
-### 🎬 Míralo en acción
-
-<div align="center">
-  <img src="docs/assets/demo.gif" alt="MooFetch: logo, elección de campus, lectura del curso, selección de recursos por nombre y descargas concurrentes" width="880">
-</div>
-
-El video es una simulación (`moofetch --demo`): no usa la red, no lee tu navegador ni necesita una cookie real, pero muestra exactamente las mismas pantallas. Pruébalo tú mismo:
-
-```bash
-moofetch --demo -o /tmp/moofetch-demo
-```
-
----
-
-## ✨ Características Principales
-
-- 🏎️ **Worker Pool Acotado y Concurrente:** Despacho paralelo mediante goroutines y canales acotados. Previene saturar tanto tu ancho de banda como los servidores institucionales.
-- 🛡️ **Escrituras Atómicas (`.part`)**: Cada archivo se descarga temporalmente con la extensión `.moofetch.part`. Si la descarga se cancela o falla a mitad de camino, el residuo se elimina automáticamente, garantizando que nunca queden PDFs incompletos o corruptos en disco.
-- ⚡ **Circuit Breaker ante Expiración de Sesión:** Si tu cookie caduca o es rechazada (HTTP 401, 403 o redirección a login), el motor aborta el lote completo instantáneamente (*fail-fast*), evitando cientos de peticiones infructuosas.
-- 🔎 **Escáner de cursos (`moofetch scan`):** Lee una página del curso con tu sesión y lista sus recursos (PDF, carpetas, archivos). Es amable con el servidor: peticiones de a una, con pausa, respetando `Retry-After`. En el asistente eliges por nombre qué descargar; en la terminal lo canalizas a `run`.
-- 🤖 **Modo Dual: TUI Rica y Headless POSIX:**
-  - **Interactivo:** Asistente visual y barras de progreso reactivas desarrolladas con **Charmbracelet** (`bubbletea`, `huh`, `lipgloss`).
-  - **Headless:** Detección automática de tuberías (`cat urls.txt | moofetch run`) con salida de progreso dirigida a `stderr` para no contaminar tus flujos Unix.
-- 🔒 **Privacidad sin Fugas (Zero-Leak):** Las cookies solo existen en la memoria volátil del proceso. Los registros de depuración utilizan `log/slog` con ofuscación nativa (`slog.LogValuer`), ocultando cualquier token antes de tocar el disco.
-- ⏱️ **Transporte HTTP Resiliente:** Soporta descargas continuas de archivos pesados sin timeouts ciegos, incorporando un detector de inactividad de 30 segundos si el servidor se congela.
-- 🎨 **Compatibilidad con `NO_COLOR`:** Degrada elegantemente sus estilos ANSI en fondos claros o entornos donde se especifique la variable de estándar `NO_COLOR=1`.
+- 🔎 **Lee tu curso por ti.** Le das la URL de un curso o sección y te muestra los recursos por **nombre** (no por enlace), todos marcados. Desmarcas lo que no quieras y listo.
+- 🧠 **Todo tu material en un solo lugar, listo para tu IA de estudio.** Baja el curso completo a una carpeta (`moofetch -o ./mi-curso`) y súbela de una vez a [NotebookLM](https://notebooklm.google.com) —o a ChatGPT, Claude o la herramienta que uses— para hacer resúmenes, preguntas y guías de estudio sobre *todo* el curso, sin cargar archivo por archivo.
+- 🍃 **Amable con el campus.** Descargas en paralelo pero acotadas, y el escáner pide las páginas de a una, con pausa, para no sobrecargar el servidor.
+- 🔒 **Tu sesión no sale de tu computador.** Usa tu cookie solo en memoria; no se guarda ni se registra.
+- 🤖 **También sirve para scripts.** Modo headless, tuberías Unix y códigos de salida POSIX para automatizar.
 
 ---
 
 ## 📦 Instalación
 
-### Opción 1: Binarios Precompilados (Recomendado)
-Descarga el ejecutable para tu plataforma (Linux, macOS o Windows) directamente desde la sección de [Releases](https://github.com/sebasinmas/MooFetch/releases).
+No necesitas instalar Go: descarga el archivo para tu sistema desde [**Releases**](https://github.com/sebasinmas/MooFetch/releases/latest), descomprímelo y listo. Los archivos se llaman `moofetch_<versión>_<sistema>_<arquitectura>`.
+
+### ¿Cuál descargo?
+
+**Casi siempre `amd64`** (procesadores Intel y AMD): es lo que usa la inmensa mayoría de computadores con Windows y Linux. Elige `arm64` solo si tu equipo tiene un procesador ARM.
+
+| Tu computador | Descarga |
+| :--- | :--- |
+| 🪟 **Windows** (lo normal: Intel/AMD) | `windows_amd64.zip` |
+| 🐧 **Linux** (lo normal: Intel/AMD) | `linux_amd64.tar.gz` |
+| 🍎 **Mac con chip Apple** (M1, M2, M3, M4…) | `darwin_arm64.tar.gz` |
+| 🍎 **Mac con chip Intel** (los modelos más antiguos) | `darwin_amd64.tar.gz` |
+| Raspberry Pi, servidores o portátiles con Windows/Linux **ARM** | `linux_arm64.tar.gz` / `windows_arm64.zip` |
+
+¿No sabes qué tienes? En Linux o Mac ejecuta `uname -m`: si dice `x86_64` es **amd64**; si dice `arm64` o `aarch64` es **arm64**. En Windows, abre PowerShell y ejecuta `$env:PROCESSOR_ARCHITECTURE` (`AMD64` o `ARM64`).
+
+### Linux y macOS
 
 ```bash
-# Ejemplo en Linux / macOS:
-tar -xzf moofetch_2.0.0_linux_amd64.tar.gz
+VERSION=2.0.0                       # la de la última release
+OS=linux                            # linux o darwin
+ARCH=amd64                          # amd64 o arm64 (ver tabla)
+
+curl -L -o moofetch.tar.gz \
+  "https://github.com/sebasinmas/MooFetch/releases/download/v${VERSION}/moofetch_${VERSION}_${OS}_${ARCH}.tar.gz"
+tar -xzf moofetch.tar.gz moofetch
 sudo mv moofetch /usr/local/bin/
+
+moofetch --version
 ```
 
-### Opción 2: Compilación con Inyección de Versión (`ldflags`)
-Si dispones del toolchain de Go (1.24 o superior):
+> En Mac, si descargaste el archivo con el navegador y el sistema lo bloquea, ejecuta `xattr -d com.apple.quarantine moofetch`. Los binarios no están firmados.
+
+### Windows
+
+1. Descarga `moofetch_<versión>_windows_amd64.zip` y descomprímelo (clic derecho → *Extraer todo*).
+2. Abre PowerShell en esa carpeta y ejecuta `.\moofetch.exe --version`. Para usarlo desde cualquier lugar, mueve `moofetch.exe` a una carpeta de tu `PATH`.
+
+Si SmartScreen avisa, elige *Más información → Ejecutar de todas formas* (el binario no está firmado).
+
+<details>
+<summary><b>Verificar la descarga (opcional)</b></summary>
+
+Cada release incluye `checksums.txt` con el SHA-256 de todos los archivos:
 
 ```bash
-# Clonar repositorio
-git clone https://github.com/sebasinmas/MooFetch.git
-cd MooFetch
-
-# Compilar binario optimizado inyectando versión y commit
-go build -ldflags "-s -w \
-  -X main.Version=2.0.0 \
-  -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
-  -X main.BuildDate=$(date +%Y-%m-%d)" \
-  -o bin/moofetch ./cmd/moofetch
-
-# Verificar instalación
-./bin/moofetch --version
+sha256sum -c checksums.txt --ignore-missing     # Linux
+shasum -a 256 -c checksums.txt --ignore-missing # macOS
 ```
 
-### Opción 3: Vía `go install`
-```bash
-go install github.com/sebasinmas/MooFetch/cmd/moofetch@latest
-```
+</details>
+
+¿Prefieres compilarlo tú? Ver [Para desarrolladores](#-para-desarrolladores).
 
 ---
 
-## 📖 Inicio Rápido
+## 🚀 Cómo usarlo
 
-### 1. Obtener la Cookie de Sesión
+1. **Inicia sesión** en tu campus virtual con tu navegador de siempre (Chrome, Edge, Firefox…).
+2. **Ejecuta** `moofetch`:
 
-#### Opción A: Automática (recomendada)
+   ```bash
+   moofetch -o ./mi-curso
+   ```
 
-MooFetch puede buscar la cookie por ti en los navegadores de tu computador (Chrome, Chromium, Edge y Firefox).
+3. **Sigue el asistente**, una decisión por pantalla:
+   1. **Campus:** eliges tu universidad (por ejemplo UFRO) o «Otra…» y escribes tu dominio. Con `--uni ufro` o `--domain campus.miuniversidad.cl` esta pantalla se omite.
+   2. **Cookie:** aceptas que MooFetch la busque en tu navegador. Si no la encuentra (por ejemplo, porque aún no iniciaste sesión), te lo dice y puedes pegarla a mano.
+   3. **Curso:** pegas la URL de tu curso o de una sección (debe ser de tu campus).
+   4. **Selección:** ves los **nombres** de los recursos, todos marcados. `Espacio` desmarca, `Ctrl+A` alterna todos, `/` filtra y `Enter` confirma.
+   5. **Descarga:** barras de avance por archivo, en paralelo, y un resumen al final.
 
-1. Inicia sesión en tu campus virtual con tu navegador de siempre.
-2. Ejecuta `moofetch`. Te preguntará **"¿Cuál es tu universidad?"**. Elige la tuya (por ejemplo, UFRO usa `campusvirtual.ufro.cl`) o escribe otro dominio con **"Otra…"**.
-3. Lee el aviso y acepta. MooFetch busca la cookie de ese sitio y sigue solo.
-4. Si no la encuentra, te deja pegarla a mano (Opción B).
+Todo queda en la carpeta que indicaste con `-o`, lista para arrastrarla a NotebookLM. Si dejas la URL del curso vacía, o la lectura falla, también puedes **pegar los enlaces a mano** (uno por línea).
 
-Sin el asistente, usa las banderas `--uni` o `--domain`:
+<details>
+<summary><b>Cookie automática: navegadores y notas</b></summary>
+
+MooFetch busca la cookie de **tu campus** (solo ese dominio) en Chrome, Chromium, Edge, Opera, Brave y Firefox (y Safari en macOS). Sin el asistente puedes indicar el campus con banderas:
 
 ```bash
 moofetch run --uni ufro -f urls.txt
 moofetch run --domain campus.miuniversidad.cl -f urls.txt
 ```
 
-Notas:
-- Cierra y vuelve a abrir el navegador si la búsqueda falla: a veces bloquea sus archivos mientras está abierto.
-- Firefox: MoodleSession es una cookie de sesión, así que Firefox la guarda en su copia de la sesión y no en `cookies.sqlite`. MooFetch también lee esa copia, incluso en la carpeta nueva `~/.config/mozilla/firefox`. Mantén Firefox abierto con tu sesión iniciada.
+- Si la búsqueda falla, cierra y vuelve a abrir el navegador: a veces bloquea sus archivos mientras está abierto.
+- **Firefox:** `MoodleSession` es una cookie de sesión, así que Firefox la guarda en su copia de la sesión y no en `cookies.sqlite`. MooFetch también lee esa copia, incluso en la carpeta nueva `~/.config/mozilla/firefox`. Mantén Firefox abierto con tu sesión iniciada.
 - En Linux, el navegador puede pedir acceso a tu llavero de contraseñas para leer la cookie.
-- MooFetch solo lee la cookie de **ese** dominio. No la guarda en disco ni la muestra en los registros.
 - Orden de búsqueda sin asistente: `--cookie`, luego el navegador (`--uni`/`--domain`), luego `MOODLE_SESSION`.
+- La verificación manual en cada navegador sigue en curso (ver [Roadmap](#-roadmap)); detalles técnicos en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md).
 
-#### Opción B: A mano (10 segundos)
+</details>
 
-1. Abre tu navegador e inicia sesión en el **Campus Virtual UFRO** (o tu intranet Moodle).
-2. Presiona `F12` para desplegar las **Herramientas de Desarrollador** y ve a la pestaña **Red** (*Network*).
-3. Recarga (`F5`), pulsa en cualquier recurso de la lista y localiza la cabecera `Cookie` en **Cabeceras de Solicitud** (*Request Headers*).
+<details>
+<summary><b>Cookie a mano (10 segundos)</b></summary>
+
+1. Inicia sesión en tu campus con el navegador.
+2. Presiona `F12`, ve a la pestaña **Red** (*Network*) y recarga con `F5`.
+3. Pulsa cualquier recurso y localiza la cabecera `Cookie` en **Cabeceras de Solicitud**.
 4. Copia el valor de tu sesión, por ejemplo:
    ```text
    MoodleSession=tu_token_aqui_123456
    ```
-   *(También puedes extraerla desde la pestaña **Almacenamiento / Application** -> **Cookies**)*.
+   *(También en **Almacenamiento / Application** → **Cookies**.)*
 
----
+</details>
 
-### 2. Uso Interactivo (Clásico TUI)
-
-Ideal para el uso diario en terminales interactivas:
+<details>
+<summary><b>Probarlo sin cuenta ni red (<code>--demo</code>)</b></summary>
 
 ```bash
-moofetch
+moofetch --demo -o /tmp/moofetch-demo
 ```
 
-Flujo del asistente (cada decisión tiene su propia pantalla):
+Recorre el asistente completo con una cookie y un curso simulados, y descarga archivos de prueba. Es lo que muestra el video de arriba.
 
-1. **Splash:** se muestra el logo de MooFetch con la vaca 🐄.
-2. **Campus:** eliges tu universidad (por ejemplo `campusvirtual.ufro.cl`) o «Otra…» e ingresas el dominio. Con `--uni` o `--domain` esta pantalla se omite.
-3. **Consentimiento:** aceptas o rechazas la detección automática de la cookie en tu navegador. Si no encuentra la cookie (por ejemplo, porque aún no iniciaste sesión en el campus), te lo dice y pasas a pegarla.
-4. **Cookie** (`MoodleSession=...`): solo si la detección falló o la rechazaste.
-5. **Página del curso:** pegas la URL de un curso o sección (debe ser de tu campus). MooFetch la lee con tu sesión y lista los recursos que encuentra.
-6. **Selección:** ves los **nombres** de los recursos (no los enlaces), todos marcados. Con `Espacio` desmarcas los que no quieras, `Ctrl+A` marca o desmarca todos y `/` filtra.
-   - Si dejas la URL vacía, o la lectura falla, puedes **pegar los enlaces a mano** como antes (una URL por línea).
-7. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
-
-> **Nota:** la detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox (cookie de sesión desde la copia de la sesión) ya está fusionado, y la verificación manual en cada navegador sigue pendiente.
+</details>
 
 ---
 
-## ⚙️ Modo Headless y Pipelines Unix
+## 🔧 Scripts y pipelines
 
-MooFetch es un ciudadano de primera clase en el ecosistema POSIX. Detecta automáticamente si la entrada estándar (`stdin`) o la salida (`stdout`) están conectadas a una tubería, conmutando a modo headless de forma transparente.
-
-### Ejemplos en Tuberías (Pipes)
+MooFetch es un ciudadano de primera clase en el ecosistema POSIX: detecta si la entrada o la salida son una tubería y cambia a modo headless solo, con el progreso en **`stderr`** para dejar **`stdout`** limpio.
 
 ```bash
-# Ingerir URLs directamente desde un archivo de texto con cookie por parámetro
-cat urls.txt | moofetch run -k "MoodleSession=abc123xyz" --headless
+# Listar los recursos de un curso (un enlace por línea) y descargarlos
+moofetch scan "https://campusvirtual.ufro.cl/course/view.php?id=123" --uni ufro > urls.txt
+moofetch run -f urls.txt --uni ufro -o ./apuntes
 
-# Usar variable de entorno para la cookie y definir salida personalizada
+# URLs desde un archivo o tubería, con la cookie por parámetro o variable de entorno
+cat urls.txt | moofetch run -k "MoodleSession=abc123xyz" --headless
 export MOODLE_SESSION="MoodleSession=abc123xyz"
 cat urls.txt | moofetch run -o ./apuntes_semestre -c 8
 
-# Filtrar URLs con grep y descargar en paralelo con bandera --file
+# Filtrar con grep y descargar en paralelo
 grep "pdf" historial_campus.txt > urls_pdf.txt
 moofetch run -k "$MOODLE_SESSION" -f urls_pdf.txt --concurrency 6
-
-# Listar los recursos de un curso (un enlace por línea en stdout) y descargarlos
-moofetch scan "https://campusvirtual.ufro.cl/course/view.php?id=123" --uni ufro > urls.txt
-moofetch run -f urls.txt --uni ufro -o ./apuntes
 ```
 
-`scan` pide las páginas de a una, con una pausa entre ellas (`--delay`, 1,5 s por defecto), respeta `Retry-After` y se detiene si tu sesión expiró. Los títulos van a `stderr`, así que `stdout` queda limpio para tuberías.
+`scan` pide las páginas de a una, con una pausa entre ellas (`--delay`, 1,5 s por defecto), respeta `Retry-After`, no pide más de `--max-pages` (30) y se detiene si tu sesión expiró. Los títulos van a `stderr`.
 
-> **Nota para Desarrolladores:** En modo headless, el registro de avance se transmite a **`stderr`** (`[1/10] ▶ Descargando...`), garantizando que **`stdout`** permanezca limpio para redirecciones de flujos o pipes hacia herramientas como `jq` o `awk`.
+### Códigos de salida
 
----
+Alineados con `sysexits.h`, para que scripts y CI/CD reaccionen con precisión:
 
-## 🚦 Códigos de Salida POSIX
-
-MooFetch implementa códigos de retorno deterministas alineados con la especificación `sysexits.h` y las convenciones POSIX. Esto permite que scripts de bash, CI/CD, extensiones de navegador y aplicaciones de escritorio (Tauri/Wails) manejen el ciclo de vida de la ejecución con precisión:
-
-| Código | Constante Interna | Categoría | Descripción Técnica |
-| :---: | :--- | :--- | :--- |
-| **`0`** | `ExitSuccess` | Éxito | Todas las tareas de descarga finalizaron satisfactoriamente. |
-| **`1`** | `ExitGeneralErr` | Error General / Red | Fallo de conexión, timeout de socket no recuperable o error de I/O en disco durante el lote. |
-| **`2`** | `ExitUsageErr` | Error de Parámetros | Flags no reconocidos, argumentos requeridos faltantes o lista de URLs vacía. |
-| **`77`** | `ExitAuthErr` | Sesión Inválida (`EX_NOPERM`) | Cookie expirada, credenciales inválidas o redirección a login abortada por el Circuit Breaker. |
-| **`130`** | `ExitInterrupted` | Interrupción (`128 + SIGINT`) | Cancelación limpia provocada por el usuario (`Ctrl+C`), `SIGTERM` o anulación del formulario. |
-
-### Ejemplo de Integración en Scripts Shell
+| Código | Constante | Significado |
+| :---: | :--- | :--- |
+| **`0`** | `ExitSuccess` | Todas las descargas terminaron bien. |
+| **`1`** | `ExitGeneralErr` | Error general: red, disco u otro fallo en el lote. |
+| **`2`** | `ExitUsageErr` | Uso incorrecto: bandera desconocida, falta la cookie o no hay URLs. |
+| **`77`** | `ExitAuthErr` | Sesión inválida o expirada (`EX_NOPERM`): renueva la cookie. |
+| **`130`** | `ExitInterrupted` | Interrumpido por el usuario (`Ctrl+C`), `SIGTERM` o formulario cancelado. |
 
 ```bash
 moofetch run -k "$MOODLE_SESSION" -f urls.txt --headless
-EXIT_CODE=$?
-
-case $EXIT_CODE in
-  0)
-    echo "✅ Todas las descargas concluyeron con éxito."
-    ;;
-  77)
-    echo "🔒 La sesión de Moodle expiró. Por favor renueva tu cookie."
-    exit 1
-    ;;
-  130)
-    echo "⚠️ Descarga abortada por el usuario. No quedaron archivos temporales."
-    ;;
-  *)
-    echo "❌ Error en la ejecución (Código $EXIT_CODE)."
-    ;;
+case $? in
+  0)   echo "✅ Todas las descargas concluyeron con éxito." ;;
+  77)  echo "🔒 La sesión de Moodle expiró. Renueva tu cookie."; exit 1 ;;
+  130) echo "⚠️ Descarga abortada por el usuario. No quedaron archivos temporales." ;;
+  *)   echo "❌ Error en la ejecución (código $?)." ;;
 esac
 ```
 
----
-
-## 🎛️ Referencia de Comandos y Banderas
+<details>
+<summary><b>Referencia de comandos y banderas</b></summary>
 
 `moofetch --help` agrupa las banderas por tema y muestra al final los códigos de salida:
 
@@ -235,6 +212,7 @@ Uso:
 Comandos:
   help        Muestra la ayuda de un comando
   run         Descarga un lote de URLs sin asistente interactivo
+  scan        Lista los recursos descargables de una página del campus
   version     Muestra la versión, el commit y la fecha de compilación
 
 Descarga:
@@ -256,58 +234,88 @@ Otros:
   -v, --version        muestra la versión
 ```
 
-La cookie de sesión se busca en este orden: `-k/--cookie`, detección en el navegador (`--uni`/`--domain`) y la variable `MOODLE_SESSION`. `moofetch run --help` muestra además el grupo **Entrada** (`-u/--urls`, `-f/--file`).
-
-### Banderas por grupo
-
-| Grupo | Bandera | Shorthand | Valor por Defecto | Descripción |
+| Grupo | Bandera | Atajo | Por defecto | Descripción |
 | :--- | :--- | :---: | :---: | :--- |
 | Descarga | `--output` | `-o` | `"."` | Carpeta donde se guardan los archivos. |
 | Descarga | `--concurrency` | `-c` | `5` | Descargas simultáneas en el worker pool. |
-| Sesión | `--cookie` | `-k` | `""` | Cookie de sesión Moodle (o variable de entorno `MOODLE_SESSION`). |
+| Sesión | `--cookie` | `-k` | `""` | Cookie de sesión Moodle (o variable `MOODLE_SESSION`). |
 | Sesión | `--uni` | | `""` | Universidad de la lista (ej. `ufro`). Busca la cookie en tu navegador. |
 | Sesión | `--domain` | | `""` | Dominio de tu Moodle (ej. `campus.miuniversidad.cl`). Gana sobre `--uni`. |
 | Salida | `--headless` | | `false` | Sin interfaz: progreso plano a `stderr`. |
 | Salida | `--log` | `-l` | `""` | Archivo de diagnóstico estructurado con `log/slog`. |
-| Otros | `--demo` | `-d` | `false` | Recorre el asistente completo con una cookie y un curso simulados (sin red ni navegador) y descarga archivos de prueba. |
+| Otros | `--demo` | `-d` | `false` | Asistente y descargas simulados (sin red ni navegador). |
 | Otros | `--version` | `-v` | | Imprime la versión del binario. |
+
+**`run`** añade el grupo *Entrada*: `-u/--urls` (URLs separadas por coma) y `-f/--file` (archivo con una URL por línea). Sin ellas, lee las URLs de `stdin` si hay datos por tubería.
+**`scan`** añade `--delay` (pausa entre peticiones, 1,5 s) y `--max-pages` (30).
 
 Los alias ocultos `--plain` (= `--headless`) y `--logger` (= `--log`) siguen funcionando para no romper scripts existentes.
 
-### Banderas Específicas de `run` (grupo Entrada)
+**Variables de entorno:** `MOODLE_SESSION` (cookie por defecto si no hay `--cookie`) y `NO_COLOR` (desactiva los colores ANSI).
 
-| Bandera | Shorthand | Descripción |
-| :--- | :---: | :--- |
-| `--urls` | `-u` | URLs separadas por coma. |
-| `--file` | `-f` | Archivo de texto con una URL por línea. |
-
-Si no das `--urls` ni `--file` y hay datos por tubería, `run` lee las URLs de `stdin`.
-
-### Variables de Entorno
-
-- `MOODLE_SESSION`: Inyecta la cookie de sesión por defecto si no se especifica `--cookie`.
-- `NO_COLOR`: Si está definida (cualquier valor), deshabilita completamente las secuencias de escape ANSI de color en TUI y logs.
+</details>
 
 ---
 
-## 🛡️ Privacidad y Seguridad Garantizada
+## 🔒 Privacidad
 
-MooFetch fue desarrollado siguiendo el principio de **Mínimo Privilegio y Cero Persistencia de Secretos**:
+MooFetch sigue el principio de **mínimo privilegio y cero persistencia de secretos**:
 
-- **Aislamiento en Memoria:** Tus credenciales de sesión (`MoodleSession`) residen exclusivamente en la memoria volátil del proceso durante el tiempo de ejecución.
-- **Sin Guardado en Disco:** El binario jamás guarda ni almacena tus cookies en archivos de configuración, base de datos local ni historial.
-- **Redacción Automática en Logs:** Al usar el flag `--log debug.txt`, el registrador estructurado (`log/slog`) aplica un formateador criptográfico (`SessionCookie`) que enmascara las cookies en tiempo real:
+- **Solo en memoria:** tu cookie de sesión (`MoodleSession`) vive en la memoria del proceso mientras se ejecuta. Nunca se guarda en archivos de configuración, base de datos ni historial.
+- **Solo tu campus:** al detectar la cookie solo lee la de **ese** dominio, y el escáner solo acepta URLs de tu campus, para que la cookie nunca se envíe a otro sitio.
+- **Logs sin secretos:** con `--log debug.txt`, el registrador (`log/slog`) enmascara las cookies:
   ```text
-  # Ejemplo de registro seguro generado:
   time=2026-09-04T00:00:00 level=INFO msg="MooFetch inicializado" cookie="MoodleSession=a1b***f9z (len: 32)"
   ```
-- **Protección contra Path Traversal:** Los nombres de archivo recibidos mediante cabeceras HTTP `Content-Disposition` se sanean estrictamente, bloqueando caracteres ilegales o secuencias maliciosas (`../`).
+- **Nombres de archivo seguros:** los nombres que llegan por `Content-Disposition` se sanean contra *path traversal* (`../`).
+
+> **Uso responsable:** esta herramienta sirve para respaldar material de estudio al que ya tienes acceso legítimo. Respeta las políticas de uso de tu institución.
 
 ---
 
-## 🏗️ Arquitectura del Sistema
+## 🧭 Roadmap
 
-MooFetch está construido bajo el patrón **Microkernel Estático**:
+El estado detallado de cada funcionalidad (fecha, rama, commit y versión) está en [docs/traceability.md](docs/traceability.md).
+
+- [x] **v2.0.0:** asistente que lee el curso y deja elegir por nombre, `moofetch scan`, una decisión por pantalla con el logo primero, ayuda de la CLI con banderas agrupadas, teclas en español y patchnotes automáticos.
+- [x] **v1.1.0:** migración a Cobra, modo headless, escrituras atómicas, Circuit Breaker y códigos POSIX.
+- [x] Selección de campus y autodetección de la cookie (Chrome, Chromium, Edge, Opera, Brave y Firefox).
+- [ ] **Verificación manual por navegador:** Chrome, Edge, Opera, Firefox y Safari (solo macOS).
+- [ ] **Carpetas Moodle anidadas:** `scan` ya expande un nivel; falta la recursión y agrupar por carpeta en la selección.
+- [ ] **Extensión de navegador (Chrome MV3):** capturar enlaces y sesión con un clic desde el campus.
+- [ ] **Aplicación de escritorio (Wails):** GUI que reutiliza el mismo núcleo.
+- [ ] **Más plataformas:** módulos para Canvas LMS y Blackboard Learn.
+- [ ] **Gestores de paquetes:** `brew`, `scoop`, `winget` y AUR.
+
+---
+
+## 🧱 Para desarrolladores
+
+### Compilar desde el código
+
+Necesitas Go 1.24 o superior.
+
+```bash
+git clone https://github.com/sebasinmas/MooFetch.git
+cd MooFetch
+
+# Compilar inyectando versión, commit y fecha (igual que en las releases)
+go build -ldflags "-s -w \
+  -X main.Version=2.0.0 \
+  -X main.Commit=$(git rev-parse --short HEAD 2>/dev/null || echo 'release') \
+  -X main.BuildDate=$(date +%Y-%m-%d)" \
+  -o bin/moofetch ./cmd/moofetch
+
+./bin/moofetch --version
+```
+
+O directamente con `go install github.com/sebasinmas/MooFetch/cmd/moofetch@latest`.
+
+Antes de proponer cambios: `gofmt -l .` (debe salir vacío), `golangci-lint run` y `go test -race ./...`. El flujo de ramas, CI y releases está en [docs/workflow.md](docs/workflow.md).
+
+### Arquitectura
+
+MooFetch es un **microkernel estático**: el kernel orquesta, los plugins descargan y la interfaz solo consume eventos.
 
 ```text
 ┌────────────────────────────────────────────────────────┐
@@ -344,46 +352,33 @@ MooFetch está construido bajo el patrón **Microkernel Estático**:
     └─────────────────────────────────────────────────┘
 ```
 
-1. **Microkernel Desacoplado:** El registro de plugins se realiza por inyección de dependencias (`kernel.WithPlugins(...)`), eliminando funciones `init()` con efectos secundarios globales.
-2. **Worker Pool Bounded:** La concurrencia está estrictamente limitada por un semáforo de canales; no importa si procesas 5 o 5.000 URLs, nunca se crearán goroutines descontroladas.
-3. **Escrituras Atómicas:** Se garantiza la consistencia del sistema de archivos local frente a caídas de red o cortes de energía.
-4. **Extensible:** añadir un plugin solo requiere implementar `DownloaderPlugin` e inyectarlo con `kernel.WithPlugins` (ver [docs/architecture.md](docs/architecture.md), sección Extensibilidad).
+- 🧩 **Microkernel desacoplado:** los plugins se registran por inyección (`kernel.WithPlugins(...)`), sin funciones `init()` con efectos globales. Añadir una plataforma es implementar `DownloaderPlugin` (ver [docs/architecture.md](docs/architecture.md)).
+- 🏎️ **Worker pool acotado:** la concurrencia la limita un semáforo de canales; da igual procesar 5 o 5.000 URLs, nunca habrá goroutines descontroladas.
+- 🛡️ **Escrituras atómicas:** cada archivo se baja a `*.moofetch.part` y se renombra al terminar; si se cancela o falla, el residuo se elimina y un archivo previo nunca se borra. Un `.pdf` cuyo cuerpo no empiece con `%PDF-` (por ejemplo, una página de login con HTTP 200) se rechaza.
+- ⚡ **Circuit Breaker de sesión:** ante un 401, 403 o redirección a login, el lote completo se aborta de inmediato (*fail-fast*), evitando cientos de peticiones inútiles.
+- ⏱️ **Transporte resiliente:** sin timeouts ciegos para archivos pesados, con detector de inactividad de 30 s si el servidor se congela.
+- 🎨 **TUI con Charm:** `bubbletea`, `huh` y `lipgloss`; respeta `NO_COLOR`.
+
+Más detalle en [docs/architecture.md](docs/architecture.md) y en las decisiones de [docs/adr/](docs/adr/).
 
 ---
 
-## 🗺️ Roadmap
+## 🤝 Contribuir
 
-El estado detallado de cada funcionalidad (fecha, rama, commit y versión) está en [docs/traceability.md](docs/traceability.md).
+¡Las contribuciones son bienvenidas! Si quieres reportar un fallo, proponer mejoras o adaptar MooFetch al campus de tu universidad:
 
-- [x] **v1.1.0:** Migración a Cobra, soporte Headless, escrituras atómicas, Circuit Breaker y códigos POSIX.
-- [x] **v2.0.0:** `moofetch scan` y selección de recursos por nombre en el asistente, una decisión por pantalla con el logo primero, ayuda de la CLI con flags agrupadas, teclas en español, patchnotes automáticos por GitHub Releases.
-- [x] **Selección de campus y autodetección de la cookie** (Chrome/Chromium/Edge/Opera/Brave vía kooky; verificación manual pendiente).
-- [x] **Autodetección en Firefox** (cookie de sesión desde la copia de la sesión): fusionada; verificación manual pendiente.
-- [ ] **Verificación manual por navegador:** Chrome, Edge, Opera, Firefox y Safari (solo macOS).
-- [ ] **Extensión de Navegador (Chrome MV3):** Captura de enlaces y sesión con un solo clic desde el Campus Virtual.
-- [ ] **Aplicación de Escritorio Multiplataforma (Tauri / Wails):** GUI visual que reutiliza el núcleo (kernel y dominio) de este proyecto.
-- [ ] **Carpetas Moodle (`mod/folder`) anidadas:** `scan` ya expande un nivel; falta la extracción recursiva y agrupar por carpeta en la selección.
-- [ ] **Plugins para Plataformas Adicionales:** Módulos para Canvas LMS y Blackboard Learn.
-- [ ] **Distribución en Gestores de Paquetes:** Soporte oficial para `brew`, `scoop`, `winget` y AUR.
-
----
-
-## 🤝 Contribuciones
-
-¡Las contribuciones son bienvenidas! Si deseas reportar un fallo, proponer mejoras o adaptar MooFetch a la plataforma de tu universidad:
-
-1. Haz un **Fork** del proyecto.
-2. Crea una rama para tu función (`git checkout -b feature/nueva-mejora`).
-3. Comprueba que todos los tests unitarios pasen y no existan condiciones de carrera:
-   ```bash
-   go test -v -race ./...
-   ```
-4. Envía un **Pull Request** detallando tus cambios.
-
----
+1. Haz un **fork** y crea una rama (`git checkout -b feature/nueva-mejora`).
+2. Verifica que pasen los tests, sin condiciones de carrera: `go test -v -race ./...`.
+3. Abre un **Pull Request** con un título convencional (`feat: …`, `fix: …`). Las reglas están en [CONTRIBUTING.md](CONTRIBUTING.md): de ese título salen las notas de cada versión.
 
 ## 📄 Licencia
 
-Distribuido bajo la Licencia **MIT**. Consulta el archivo `LICENSE` para más información.
+Distribuido bajo la licencia **MIT**; consulta el archivo [`LICENSE`](LICENSE).
 
-> **Aviso de Uso Responsable:** Esta herramienta fue creada para facilitar el respaldo de material de estudio que el usuario ya tiene permiso legítimo de acceder. Respeta las políticas de uso y normativas de los servicios tecnológicos de tu institución académica.
+---
+
+<div align="center">
+
+¿Te ahorró horas de clics? 🌭 [Invítale un completo a SebaSinMas](https://ko-fi.com/sebasinmas)
+
+</div>
