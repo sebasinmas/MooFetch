@@ -135,8 +135,10 @@ Flujo del asistente (cada decisión tiene su propia pantalla):
 2. **Campus:** eliges tu universidad (por ejemplo `campusvirtual.ufro.cl`) o «Otra…» e ingresas el dominio. Con `--uni` o `--domain` esta pantalla se omite.
 3. **Consentimiento:** aceptas o rechazas la detección automática de la cookie en tu navegador. Si no encuentra la cookie (por ejemplo, porque aún no iniciaste sesión en el campus), te lo dice y pasas a pegarla.
 4. **Cookie** (`MoodleSession=...`): solo si la detección falló o la rechazaste.
-5. **Enlaces:** la lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
-6. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
+5. **Página del curso:** pegas la URL de un curso o sección (debe ser de tu campus). MooFetch la lee con tu sesión y lista los recursos que encuentra.
+6. **Selección:** ves los **nombres** de los recursos (no los enlaces), todos marcados. Con `Espacio` desmarcas los que no quieras, `Ctrl+A` marca o desmarca todos y `/` filtra.
+   - Si dejas la URL vacía, o la lectura falla, puedes **pegar los enlaces a mano** como antes (una URL por línea).
+7. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
 
 > **Nota:** la detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox (cookie de sesión desde la copia de la sesión) ya está fusionado, y la verificación manual en cada navegador sigue pendiente.
 

@@ -10,6 +10,7 @@ Hoy el usuario pega a mano los enlaces de cada recurso. Se quiere extraer los re
 - Añadir el comando experimental `moofetch scan <url-de-página>` y `Plugin.ScanPage` en `internal/plugins/moodle/scan.go`. Escribe un enlace por línea en **stdout** (se canaliza a `moofetch run`) y el diagnóstico en stderr.
 - **Uso responsable como requisito:** peticiones estrictamente secuenciales con pausa más jitter (por defecto 1,5 s + hasta 0,5 s), `User-Agent` identificable, respeto de `Retry-After` en 429/503 con reintentos acotados, tope de 30 páginas por ejecución, tope de tamaño de respuesta, y parada inmediata (sin reintentos) si aparece la página de login.
 - Las carpetas se expanden un solo nivel.
+- El asistente interactivo usa el mismo escaneo (TR-025): pide la URL del curso, valida que el host sea el del campus elegido (la cookie solo se envía allí), muestra los nombres de los recursos con todo marcado y deja el pegado manual como alternativa.
 - La cookie nunca se registra; se obtiene igual que en `run` (`-k`, detección en navegador, `MOODLE_SESSION`).
 
 ## 3. Qué falta confirmar (TR-022)
