@@ -303,7 +303,7 @@
     "fecha": "2026-10-25",
     "estado": "en proceso",
     "rama": "chore/ignore-claude",
-    "commit": null,
+    "commit": "56627c8",
     "version": null,
     "evidencia": [".gitignore", "docs/tasks/TASK-06-coverage-80.md"]
   }
