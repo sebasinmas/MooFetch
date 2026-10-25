@@ -47,6 +47,17 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-026 | Modo --demo guiado y cinta VHS para el video del README | 2026-10-25 | en proceso | `feature/demo-vhs` / `57549aa` | — |
 | TR-027 | README orientado a nuevos usuarios, con demo arriba y badges de estado | 2026-10-25 | en proceso | `feature/demo-vhs` / `bc7b0b3` | — |
 | TR-028 | Configuración local de asistentes de IA fuera del repositorio (.claude/ y CLAUDE.md) | 2026-10-25 | en proceso | `chore/ignore-claude` / `56627c8` | — |
+| TR-029 | Diagnóstico por navegador y comando moofetch doctor | 2026-10-25 | en proceso | `fix/windows-support` | — |
+| TR-030 | Firefox robusto en Windows: archivos en uso, reintentos y copiar-leer-eliminar | 2026-10-25 | en proceso | `fix/windows-support` | — |
+| TR-031 | Chrome y Edge en Windows: cookies cifradas (v20), mensaje claro y decisión de ruta | 2026-10-25 | en proceso | `fix/windows-support` | — |
+| TR-032 | Releases solo amd64 y Mac universal, con archivos MooFetch-Windows, MooFetch-Linux y MooFetch-Mac | 2026-10-25 | en proceso | `fix/windows-support` | — |
+| TR-033 | Verificación en Windows sin CI: script de compilación cruzada y guía previa a cada tag | 2026-10-25 | en proceso | `fix/windows-support` | — |
+| TR-034 | Nombres de archivo seguros en Windows | 2026-10-25 | en proceso | `fix/windows-support` | — |
+| TR-035 | Verificación manual en Windows con varios navegadores | — | por implementar | — | — |
+| TR-036 | Spike de la API móvil de Moodle (compuerta humana) | — | por implementar | — | — |
+| TR-037 | Autenticación por API móvil: usuario y contraseña a token en memoria | — | por implementar | — | — |
+| TR-038 | Navegar cursos, secciones y archivos vía API móvil | — | por implementar | — | — |
+| TR-039 | Redacción de tokens, contraseñas y cookies en logs y errores | — | por implementar | — | — |
 <!-- END TABLE -->
 
 ## Notas
