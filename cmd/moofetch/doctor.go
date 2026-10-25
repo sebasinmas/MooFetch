@@ -104,14 +104,42 @@ func writeDoctorReport(w io.Writer, domain string, reports []auth.StoreReport) {
 		return strings.ToLower(sorted[i].Profile) < strings.ToLower(sorted[j].Profile)
 	})
 
-	tw := tabwriter.NewWriter(w, 0, 0, 1, ' ', 0)
-	writeRow(tw, "Navegador", "Perfil", "Resultado", "Estrategia", "Detalle")
-	for _, r := range sorted {
-		writeRow(tw, r.Browser, r.Profile, string(r.Outcome), string(r.Strategy), outcomeDetail(r))
+	present, missing := splitMissing(sorted)
+	if len(present) > 0 {
+		tw := tabwriter.NewWriter(w, 0, 0, 1, ' ', 0)
+		writeRow(tw, "Navegador", "Perfil", "Resultado", "Estrategia", "Detalle")
+		for _, r := range present {
+			writeRow(tw, r.Browser, r.Profile, string(r.Outcome), string(r.Strategy), outcomeDetail(r))
+		}
+		_ = tw.Flush()
 	}
-	_ = tw.Flush()
+	if len(missing) > 0 {
+		_, _ = fmt.Fprintf(w, "\nNo instalados o sin perfil: %s.\n", strings.Join(missing, ", "))
+	}
 
-	_, _ = fmt.Fprintf(w, "\n%s\n%s\n", doctorSummary(sorted), doctorAdvice(sorted))
+	_, _ = fmt.Fprintf(w, "\n%s\n%s\n", doctorSummary(present), doctorAdvice(sorted))
+}
+
+// splitMissing separates stores that exist from browsers that are not installed
+// (reported once by name, so the table only shows what matters).
+func splitMissing(sorted []auth.StoreReport) (present []auth.StoreReport, missing []string) {
+	seen := map[string]bool{}
+	inTable := map[string]bool{}
+	for _, r := range sorted {
+		if r.Outcome != auth.OutcomeMissing {
+			present = append(present, r)
+			inTable[strings.ToLower(strings.TrimSpace(r.Browser))] = true
+		}
+	}
+	for _, r := range sorted {
+		name := strings.TrimSpace(r.Browser)
+		key := strings.ToLower(name)
+		if r.Outcome == auth.OutcomeMissing && name != "" && !seen[key] && !inTable[key] {
+			seen[key] = true
+			missing = append(missing, name)
+		}
+	}
+	return present, missing
 }
 
 // writeRow writes one table row, separating columns with " | ".
@@ -196,7 +224,7 @@ func countOutcome(reports []auth.StoreReport, o auth.Outcome) int {
 
 func doctorSummary(reports []auth.StoreReport) string {
 	found := countOutcome(reports, auth.OutcomeFound)
-	return fmt.Sprintf("Resumen: cookie encontrada en %d de %d almacenes revisados.", found, len(reports))
+	return fmt.Sprintf("Resumen: cookie encontrada en %d de %d almacenes revisados (sin contar los no instalados).", found, len(reports))
 }
 
 // doctorAdvice gives one actionable recommendation based on the outcomes.

@@ -83,14 +83,19 @@ func TestDoctor_TableAllOutcomes(t *testing.T) {
 		"cifrado":    "el navegador protege sus cookies; usa Firefox o pega la cookie",
 		"sin-cookie": "sin sesión en este navegador",
 		"bloqueado":  "archivo en uso por el navegador",
-		"ausente":    "no instalado",
 		"ilegible":   "no se pudo leer: open Cookies",
 	} {
 		if l := lineWith(t, s, "| "+needle); !strings.Contains(l, detail) {
 			t.Errorf("row %s lacks detail %q: %q", needle, detail, l)
 		}
 	}
-	if !strings.Contains(s, "cookie encontrada en 1 de 6 almacenes") {
+	if !strings.Contains(s, "No instalados o sin perfil: Brave.") {
+		t.Errorf("missing browsers must be listed once, not as table rows:\n%s", s)
+	}
+	if strings.Contains(s, "| ausente") {
+		t.Errorf("ausente rows must not be in the table:\n%s", s)
+	}
+	if !strings.Contains(s, "cookie encontrada en 1 de 5 almacenes") {
 		t.Errorf("summary missing:\n%s", s)
 	}
 	if !strings.Contains(s, "Recomendación: todo en orden") {
@@ -138,7 +143,7 @@ func TestDoctor_SortsByBrowserThenProfile(t *testing.T) {
 		return -1
 	}
 	order := []int{
-		idx("Brave", "Default"), idx("Chrome", "Default"), idx("Chrome", "Profile 2"),
+		idx("Chrome", "Default"), idx("Chrome", "Profile 2"),
 		idx("Edge", "Profile 1"), idx("Firefox", "default-release"), idx("Opera", "Default"),
 	}
 	for i := 1; i < len(order); i++ {
@@ -444,5 +449,21 @@ func TestDoctorCommand_ListedInRootHelp(t *testing.T) {
 		if !strings.Contains(sub, want) {
 			t.Errorf("doctor help lacks %q:\n%s", want, sub)
 		}
+	}
+}
+
+func TestSplitMissing_OmitsBrowsersAlreadyInTable(t *testing.T) {
+	reports := []auth.StoreReport{
+		{Browser: "Chromium", Profile: "Trabajo", Outcome: auth.OutcomeNoCookie},
+		{Browser: "Chromium", Outcome: auth.OutcomeMissing},
+		{Browser: "Lynx", Outcome: auth.OutcomeMissing},
+		{Browser: "lynx", Outcome: auth.OutcomeMissing},
+	}
+	present, missing := splitMissing(reports)
+	if len(present) != 1 || present[0].Browser != "Chromium" {
+		t.Errorf("present = %+v", present)
+	}
+	if len(missing) != 1 || missing[0] != "Lynx" {
+		t.Errorf("missing = %v, want only Lynx once", missing)
 	}
 }
