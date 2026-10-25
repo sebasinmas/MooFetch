@@ -300,13 +300,13 @@ func TestResolveChosenDomain(t *testing.T) {
 }
 
 func TestBuildAuthGroups(t *testing.T) {
-	var choice, custom string
+	var choice, custom, method string
 	consent := true
 	opts := &AuthOptions{Universities: []University{{Name: "U", Domain: "u.cl"}}}
-	if g := buildAuthGroups(opts, "", &choice, &custom, &consent); len(g) != 3 {
+	if g := buildAuthGroups(opts, "", &choice, &custom, &method, &consent); len(g) != 3 {
 		t.Errorf("no preset domain: want campus + custom-domain + consent groups, got %d", len(g))
 	}
-	if g := buildAuthGroups(opts, "u.cl", &choice, &custom, &consent); len(g) != 1 {
+	if g := buildAuthGroups(opts, "u.cl", &choice, &custom, &method, &consent); len(g) != 1 {
 		t.Errorf("preset domain: want consent group only, got %d", len(g))
 	}
 }

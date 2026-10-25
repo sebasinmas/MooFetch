@@ -42,6 +42,9 @@ func resolveHeadlessCookie(ctx context.Context, explicit string) (string, error)
 
 // authOptions builds the interactive detection step configuration.
 func authOptions() (*tui.AuthOptions, error) {
+	if err := validateAuthFlag(); err != nil {
+		return nil, err
+	}
 	domain, err := auth.ResolveDomain(flagUni, flagDomain)
 	if err != nil {
 		return nil, err
@@ -50,7 +53,12 @@ func authOptions() (*tui.AuthOptions, error) {
 	for _, u := range auth.Universities() {
 		unis = append(unis, tui.University{Name: u.Name, Domain: u.Domain})
 	}
+	api := newAPIAdapter()
 	opts := &tui.AuthOptions{
+		Login:          api.Login,
+		Courses:        api.Courses,
+		Contents:       api.Contents,
+		DefaultAuth:    flagAuth,
 		Universities:   unis,
 		ValidateDomain: auth.ValidateDomain,
 		Domain:         domain,

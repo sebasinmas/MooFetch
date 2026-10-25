@@ -104,21 +104,48 @@ grep MooFetch-Mac.zip checksums.txt | shasum -a 256 -c -   # macOS (cambia el no
 
 ## 🚀 Cómo usarlo
 
-1. **Inicia sesión** en tu campus virtual con tu navegador de siempre (Chrome, Edge, Firefox…).
-2. **Ejecuta** `moofetch`:
+1. **Ejecuta** `moofetch`:
 
    ```bash
    moofetch -o ./mi-curso
    ```
 
-3. **Sigue el asistente**, una decisión por pantalla:
+2. **Sigue el asistente**, una decisión por pantalla:
    1. **Campus:** eliges tu universidad (por ejemplo UFRO) o «Otra…» y escribes tu dominio. Con `--uni ufro` o `--domain campus.miuniversidad.cl` esta pantalla se omite.
-   2. **Cookie:** aceptas que MooFetch la busque en tu navegador. Si no la encuentra (por ejemplo, porque aún no iniciaste sesión), te lo dice y puedes pegarla a mano.
-   3. **Curso:** pegas la URL de tu curso o de una sección (debe ser de tu campus).
-   4. **Selección:** ves los **nombres** de los recursos, todos marcados. `Espacio` desmarca, `Ctrl+A` alterna todos, `/` filtra y `Enter` confirma.
-   5. **Descarga:** barras de avance por archivo, en paralelo, y un resumen al final.
+   2. **Cómo entrar:** por defecto, con tu **usuario y contraseña del campus** (recomendado). La alternativa es **usar la cookie de tu navegador** (`--auth cookie`).
+   3. **Usuario y contraseña:** los escribes (la contraseña no se ve en pantalla). MooFetch inicia sesión una vez y se queda solo con un token temporal, en memoria.
+   4. **Cursos:** ves tus cursos por nombre, **ninguno marcado** para no pedirlos todos de golpe. `Espacio` marca, `/` filtra y `Enter` confirma (al menos uno).
+   5. **Secciones y archivos:** por cada curso elegido, primero las **secciones** y luego los **archivos** (con su tamaño), todo marcado. `Espacio` desmarca lo que no quieras, `Ctrl+A` alterna todos y `Enter` confirma.
+   6. **Descarga:** barras de avance por archivo, en paralelo, y un resumen al final.
 
-Todo queda en la carpeta que indicaste con `-o`, lista para arrastrarla a NotebookLM. Si dejas la URL del curso vacía, o la lectura falla, también puedes **pegar los enlaces a mano** (uno por línea).
+Todo queda en la carpeta que indicaste con `-o`, ordenado como en el campus: `curso/sección/archivo` (los archivos de una carpeta de Moodle conservan su subcarpeta). Lista para arrastrarla a NotebookLM:
+
+```text
+mi-curso/
+└── Estructuras de Datos/
+    ├── 00 - General/
+    │   └── Programa_Estructuras_de_Datos.pdf
+    └── 01 - Listas enlazadas/
+        ├── Clase_01_Introduccion_ED.pdf
+        └── Guías/
+            └── Guia_Listas_01.pdf
+```
+
+Los nombres de curso y sección se limpian para que sean válidos en Windows, macOS y Linux.
+
+**Si el acceso con usuario y contraseña falla**, el asistente te lo explica y te deja reintentar, usar la cookie de tu navegador o pegar los enlaces a mano. Algunos campus (por ejemplo, con inicio de sesión único sin contraseña propia) no ofrecen este acceso: ahí MooFetch pasa solo al flujo de la cookie.
+
+### Alternativa: la cookie de tu navegador
+
+Con `--auth cookie` (o eligiéndola en el asistente) el flujo es el de siempre:
+
+1. **Inicia sesión** en tu campus virtual con tu navegador de siempre (Chrome, Edge, Firefox…).
+2. En el asistente, tras el campus, aceptas que MooFetch busque la cookie en tu navegador. Si no la encuentra (por ejemplo, porque aún no iniciaste sesión), te lo dice y puedes pegarla a mano.
+3. **Curso:** pegas la URL de tu curso o de una sección (debe ser de tu campus).
+4. **Selección:** ves los **nombres** de los recursos, todos marcados. `Espacio` desmarca, `Ctrl+A` alterna todos, `/` filtra y `Enter` confirma.
+5. **Descarga:** igual que arriba; en este flujo los archivos quedan directamente en la carpeta de salida.
+
+Si dejas la URL del curso vacía, o la lectura falla, también puedes **pegar los enlaces a mano** (uno por línea).
 
 <details>
 <summary><b>Cookie automática: navegadores y notas</b></summary>
@@ -174,7 +201,7 @@ Revisa cada navegador y perfil instalados y muestra una tabla con `Navegador | P
 moofetch --demo -o /tmp/moofetch-demo
 ```
 
-Recorre el asistente completo con una cookie y un curso simulados, y descarga archivos de prueba. Es lo que muestra el video de arriba.
+Recorre el asistente completo con un campus simulado (acepta cualquier usuario y contraseña, con 3 cursos de ejemplo; la opción de cookie también está disponible) y descarga archivos de prueba. Es lo que muestra el video de arriba.
 
 </details>
 
@@ -244,6 +271,7 @@ Descarga:
   -c, --concurrency N  descargas simultáneas (por defecto 5)
 
 Sesión:
+      --auth MODO      cómo entra el asistente: api (usuario y contraseña) o cookie (la de tu navegador) (por defecto "api")
   -k, --cookie COOKIE  cookie de sesión (ej. MoodleSession=abc123)
       --uni CLAVE      universidad del catálogo, para leer la cookie del navegador (ej. ufro)
       --domain HOST    dominio del campus, para leer la cookie del navegador (ej. campus.ejemplo.cl)
@@ -262,6 +290,7 @@ Otros:
 | :--- | :--- | :---: | :---: | :--- |
 | Descarga | `--output` | `-o` | `"."` | Carpeta donde se guardan los archivos. |
 | Descarga | `--concurrency` | `-c` | `5` | Descargas simultáneas en el worker pool. |
+| Sesión | `--auth` | | `"api"` | Cómo entra el asistente: `api` (usuario y contraseña del campus) o `cookie` (la de tu navegador). Otro valor termina con código 2. |
 | Sesión | `--cookie` | `-k` | `""` | Cookie de sesión Moodle (o variable `MOODLE_SESSION`). |
 | Sesión | `--uni` | | `""` | Universidad de la lista (ej. `ufro`). Busca la cookie en tu navegador. |
 | Sesión | `--domain` | | `""` | Dominio de tu Moodle (ej. `campus.miuniversidad.cl`). Gana sobre `--uni`. |
@@ -285,13 +314,16 @@ Los alias ocultos `--plain` (= `--headless`) y `--logger` (= `--log`) siguen fun
 
 MooFetch sigue el principio de **mínimo privilegio y cero persistencia de secretos**:
 
-- **Solo en memoria:** tu cookie de sesión (`MoodleSession`) vive en la memoria del proceso mientras se ejecuta. Nunca se guarda en archivos de configuración, base de datos ni historial.
+- **Solo en memoria:** tu cookie de sesión (`MoodleSession`) y el token de acceso viven en la memoria del proceso mientras se ejecuta. Nunca se guardan en archivos de configuración, base de datos ni historial.
+- **Tu contraseña no se guarda ni se registra:** se lee con el eco desactivado, se usa una sola vez para pedir el token al campus (por HTTPS) y se descarta. No aparece en logs, errores ni mensajes.
+- **El token no va en las URLs:** se agrega a la petición solo en el momento de hacerla, así que los enlaces que ves en pantalla, en el progreso y en los logs nunca lo contienen.
 - **Solo tu campus:** al detectar la cookie solo lee la de **ese** dominio, y el escáner solo acepta URLs de tu campus, para que la cookie nunca se envíe a otro sitio.
 - **Logs sin secretos:** con `--log debug.txt`, el registrador (`log/slog`) enmascara las cookies:
   ```text
   time=2026-09-04T00:00:00 level=INFO msg="MooFetch inicializado" cookie="MoodleSession=a1b***f9z (len: 32)"
   ```
-- **Nombres de archivo seguros:** los nombres que llegan por `Content-Disposition` se sanean contra *path traversal* (`../`).
+  Los tokens se enmascaran igual, y cualquier URL registrada pasa por una limpieza que elimina `token=`.
+- **Nombres de archivo y carpeta seguros:** los nombres que llegan por `Content-Disposition` y los de cursos y secciones se sanean contra *path traversal* (`../`) y nombres reservados de Windows.
 
 > **Uso responsable:** esta herramienta sirve para respaldar material de estudio al que ya tienes acceso legítimo. Respeta las políticas de uso de tu institución.
 

@@ -33,7 +33,7 @@ var (
 	flagOrder = []string{
 		"urls", "file",
 		"output", "concurrency",
-		"cookie", "uni", "domain",
+		"auth", "cookie", "uni", "domain",
 		"headless", "log",
 		"demo", "help", "version",
 	}
@@ -42,7 +42,7 @@ var (
 	flagMeta = map[string]string{
 		"urls": "URLS", "file": "ARCHIVO",
 		"output": "DIR", "concurrency": "N",
-		"cookie": "COOKIE", "uni": "CLAVE", "domain": "HOST",
+		"auth": "MODO", "cookie": "COOKIE", "uni": "CLAVE", "domain": "HOST",
 		"log": "ARCHIVO",
 	}
 )
