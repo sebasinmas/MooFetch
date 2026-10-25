@@ -295,5 +295,16 @@
     "commit": "bc7b0b3",
     "version": null,
     "evidencia": ["README.md", ".github/workflows/ci.yml", "docs/workflow.md", "docs/assets/demo.gif"]
+  },
+  {
+    "id": "TR-028",
+    "titulo": "Configuración local de asistentes de IA fuera del repositorio",
+    "descripcion": "Se agrega .claude/ al .gitignore y se deja de versionar .claude/agents/test-coverage-engineer.md (el archivo sigue en la máquina de quien lo usa; el historial anterior lo conserva). TASK-06 ya no enlaza a esa ruta.",
+    "fecha": "2026-10-25",
+    "estado": "en proceso",
+    "rama": "chore/ignore-claude",
+    "commit": null,
+    "version": null,
+    "evidencia": [".gitignore", "docs/tasks/TASK-06-coverage-80.md"]
   }
 ]

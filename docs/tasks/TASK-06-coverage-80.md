@@ -1,6 +1,6 @@
 # TASK-06: Cobertura de tests superior al 80%
 - **Prioridad:** 🟡 Media · **Depende de:** TASK-01 a TASK-05
-- **Agente:** `test-coverage-engineer` (`.claude/agents/test-coverage-engineer.md`)
+- **Agente:** `test-coverage-engineer` (definición local de un asistente de IA, fuera del repositorio)
 
 ## Estado inicial (`go test -coverprofile`)
 | Paquete | Cobertura |
