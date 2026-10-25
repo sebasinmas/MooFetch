@@ -37,50 +37,54 @@ MooFetch resuelve eso:
 
 ## 📦 Instalación
 
-No necesitas instalar Go: descarga el archivo para tu sistema desde [**Releases**](https://github.com/sebasinmas/MooFetch/releases/latest), descomprímelo y listo. Los archivos se llaman `moofetch_<versión>_<sistema>_<arquitectura>`.
-
-### ¿Cuál descargo?
-
-**Casi siempre `amd64`** (procesadores Intel y AMD): es lo que usa la inmensa mayoría de computadores con Windows y Linux. Elige `arm64` solo si tu equipo tiene un procesador ARM.
+No necesitas instalar Go: descarga el archivo de tu sistema, descomprímelo y listo. Los enlaces apuntan siempre a la última versión:
 
 | Tu computador | Descarga |
 | :--- | :--- |
-| 🪟 **Windows** (lo normal: Intel/AMD) | `windows_amd64.zip` |
-| 🐧 **Linux** (lo normal: Intel/AMD) | `linux_amd64.tar.gz` |
-| 🍎 **Mac con chip Apple** (M1, M2, M3, M4…) | `darwin_arm64.tar.gz` |
-| 🍎 **Mac con chip Intel** (los modelos más antiguos) | `darwin_amd64.tar.gz` |
-| Raspberry Pi, servidores o portátiles con Windows/Linux **ARM** | `linux_arm64.tar.gz` / `windows_arm64.zip` |
+| 🪟 **Windows** | [`MooFetch-Windows.zip`](https://github.com/sebasinmas/MooFetch/releases/latest/download/MooFetch-Windows.zip) |
+| 🐧 **Linux** | [`MooFetch-Linux.tar.gz`](https://github.com/sebasinmas/MooFetch/releases/latest/download/MooFetch-Linux.tar.gz) |
+| 🍎 **Mac** (Intel o chip Apple) | [`MooFetch-Mac.zip`](https://github.com/sebasinmas/MooFetch/releases/latest/download/MooFetch-Mac.zip) |
 
-¿No sabes qué tienes? En Linux o Mac ejecuta `uname -m`: si dice `x86_64` es **amd64**; si dice `arm64` o `aarch64` es **arm64**. En Windows, abre PowerShell y ejecuta `$env:PROCESSOR_ARCHITECTURE` (`AMD64` o `ARM64`).
+Todas las versiones y sus notas están en [**Releases**](https://github.com/sebasinmas/MooFetch/releases).
 
-### Linux y macOS
+### Windows
+
+1. Descarga `MooFetch-Windows.zip` y descomprímelo (clic derecho → *Extraer todo*).
+2. Abre PowerShell en esa carpeta y ejecuta `.\moofetch.exe --version`. Para usarlo desde cualquier lugar, mueve `moofetch.exe` a una carpeta de tu `PATH` (o agrega su carpeta a la variable `Path` en *Configuración → Sistema → Acerca de → Configuración avanzada del sistema → Variables de entorno*).
+
+Si SmartScreen avisa, elige *Más información → Ejecutar de todas formas* (el binario no está firmado).
+
+### Linux
 
 ```bash
-VERSION=2.0.0                       # la de la última release
-OS=linux                            # linux o darwin
-ARCH=amd64                          # amd64 o arm64 (ver tabla)
-
-curl -L -o moofetch.tar.gz \
-  "https://github.com/sebasinmas/MooFetch/releases/download/v${VERSION}/moofetch_${VERSION}_${OS}_${ARCH}.tar.gz"
-tar -xzf moofetch.tar.gz moofetch
+curl -L -o MooFetch-Linux.tar.gz \
+  https://github.com/sebasinmas/MooFetch/releases/latest/download/MooFetch-Linux.tar.gz
+tar -xzf MooFetch-Linux.tar.gz moofetch
 sudo mv moofetch /usr/local/bin/
 
 moofetch --version
 ```
 
-> En Mac, si descargaste el archivo con el navegador y el sistema lo bloquea, ejecuta `xattr -d com.apple.quarantine moofetch`. Los binarios no están firmados.
+### Mac
 
-### Windows
+Un solo archivo sirve para Mac Intel y para chip Apple (M1, M2, M3, M4…).
 
-1. Descarga `moofetch_<versión>_windows_amd64.zip` y descomprímelo (clic derecho → *Extraer todo*).
-2. Abre PowerShell en esa carpeta y ejecuta `.\moofetch.exe --version`. Para usarlo desde cualquier lugar, mueve `moofetch.exe` a una carpeta de tu `PATH`.
+```bash
+curl -L -o MooFetch-Mac.zip \
+  https://github.com/sebasinmas/MooFetch/releases/latest/download/MooFetch-Mac.zip
+unzip MooFetch-Mac.zip moofetch
+chmod +x moofetch
+sudo mv moofetch /usr/local/bin/
 
-Si SmartScreen avisa, elige *Más información → Ejecutar de todas formas* (el binario no está firmado).
+moofetch --version
+```
+
+> Si descargaste el archivo con el navegador y el sistema bloquea el binario, ejecuta `xattr -d com.apple.quarantine moofetch`. Los binarios no están firmados.
 
 <details>
 <summary><b>Verificar la descarga (opcional)</b></summary>
 
-Cada release incluye `checksums.txt` con el SHA-256 de todos los archivos:
+Cada release incluye `checksums.txt` con el SHA-256 de los tres archivos (`MooFetch-Windows.zip`, `MooFetch-Linux.tar.gz` y `MooFetch-Mac.zip`). Descárgalo junto al tuyo, en la misma carpeta:
 
 ```bash
 sha256sum -c checksums.txt --ignore-missing     # Linux

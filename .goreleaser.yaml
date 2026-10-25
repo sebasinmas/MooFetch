@@ -25,7 +25,8 @@ before:
     - go mod tidy
 
 # ------------------------------------------------------------------------------
-# Builds: linux/darwin/windows x amd64/arm64, sin CGO
+# Builds: linux/amd64, windows/amd64 y macOS (darwin amd64+arm64, que más abajo
+# se fusionan en un único binario universal); sin CGO
 # ------------------------------------------------------------------------------
 builds:
   - id: moofetch
@@ -40,6 +41,13 @@ builds:
     goarch:
       - amd64
       - arm64
+    # Linux y Windows solo se publican para amd64 (darwin conserva ambas
+    # arquitecturas como entrada del binario universal).
+    ignore:
+      - goos: linux
+        goarch: arm64
+      - goos: windows
+        goarch: arm64
     # Metadatos inyectados en tiempo de compilación (única fuente de verdad:
     # el tag Git). Las variables viven en package main (cmd/moofetch).
     ldflags:
@@ -49,15 +57,30 @@ builds:
       - -X main.BuildDate={{ .Date }}
 
 # ------------------------------------------------------------------------------
-# Archives: tar.gz (zip en Windows) con README y LICENSE
+# Binario universal de macOS: fusiona darwin/amd64 + darwin/arm64 en un solo
+# Mach-O (corre nativo en Mac Intel y con chip Apple). `replace: true` descarta
+# los dos binarios individuales, así el archivo de Mac contiene solo el universal.
+# ------------------------------------------------------------------------------
+universal_binaries:
+  - id: moofetch
+    ids:
+      - moofetch
+    replace: true
+
+# ------------------------------------------------------------------------------
+# Archives: nombres fijos, sin versión ni espacios, para un enlace estable
+# (releases/latest/download/<archivo>): MooFetch-Windows.zip,
+# MooFetch-Linux.tar.gz y MooFetch-Mac.zip. Cada uno trae el binario, README y LICENSE.
 # ------------------------------------------------------------------------------
 archives:
   - id: default
     formats: [tar.gz]
     name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      MooFetch-{{ if eq .Os "darwin" }}Mac{{ else if eq .Os "windows" }}Windows{{ else }}Linux{{ end }}
     format_overrides:
       - goos: windows
+        formats: [zip]
+      - goos: darwin
         formats: [zip]
     files:
       - README.md
@@ -140,10 +163,13 @@ release:
   header: |
     ## MooFetch {{ .Tag }}
 
-    Binarios precompilados para Linux, macOS y Windows (amd64 y arm64).
-    Descarga el archivo de tu plataforma (`.tar.gz`; `.zip` en Windows).
+    Descarga el archivo de tu sistema (los nombres no cambian entre versiones):
 
-    **Verificar la descarga** (desde la carpeta donde guardaste el archivo y `checksums.txt`):
+    - **Windows**: `MooFetch-Windows.zip`
+    - **Linux**: `MooFetch-Linux.tar.gz`
+    - **Mac**: `MooFetch-Mac.zip` (binario universal: corre nativo en Mac Intel y con chip Apple)
+
+    **Verificar la descarga** (desde la carpeta donde guardaste el archivo y `checksums.txt`; `--ignore-missing` omite los archivos que no descargaste):
 
     ```bash
     sha256sum -c checksums.txt --ignore-missing      # Linux

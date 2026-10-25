@@ -51,10 +51,10 @@ Además `pr-title.yml` valida que el **título de la PR** sea un Conventional Co
 ## 3. Release con GoReleaser
 `.github/workflows/release.yml` se dispara al empujar un tag `v*`. Hace checkout con `fetch-depth: 0` (GoReleaser necesita los tags anteriores para generar el changelog), toma la versión de Go de `go.mod` y ejecuta `goreleaser release --clean` (pin `~> v2`, igual que `version: 2` de `.goreleaser.yaml`). `.goreleaser.yaml` está dividido en secciones comentadas: proyecto, hooks, builds, archives, checksum, snapshot, changelog y release.
 
-- Compila `cmd/moofetch` para linux/darwin/windows × amd64/arm64 con `CGO_ENABLED=0`.
+- Compila `cmd/moofetch` con `CGO_ENABLED=0` para linux/amd64, windows/amd64 y macOS (darwin amd64+arm64 fusionados en **un binario universal** con `universal_binaries` y `replace: true`). No se publica arm64 para Linux ni Windows.
 - Inyecta versión, commit y fecha con `-X main.Version/Commit/BuildDate` (`{{ .Version }}` sale del tag).
-- Empaqueta `tar.gz` (zip en Windows) con el README, genera `checksums.txt` (sha256).
-- Crea la Release en GitHub (`prerelease: auto`: `-rc1`/`-beta1` quedan como prerelease). El cuerpo lleva un encabezado con cómo verificar los checksums (`sha256sum -c checksums.txt`), el changelog agrupado, y un pie con el enlace de comparación entre tags y a la trazabilidad.
+- Empaqueta con nombres fijos, sin versión (para el enlace estable `releases/latest/download/<archivo>`): `MooFetch-Windows.zip`, `MooFetch-Linux.tar.gz` y `MooFetch-Mac.zip`. Cada uno contiene el binario, `README.md` y `LICENSE`. Genera `checksums.txt` (sha256). El README no hay que editarlo en cada release.
+- Crea la Release en GitHub (`prerelease: auto`: `-rc1`/`-beta1` quedan como prerelease). El cuerpo lleva un encabezado con cómo verificar los checksums (`sha256sum -c checksums.txt --ignore-missing`), el changelog agrupado, y un pie con el enlace de comparación entre tags y a la trazabilidad.
 - Changelog (`use: github`, agrega PR y autor): grupos ⚠️ cambios incompatibles (`!`), `feat`, `fix`, `security`, `perf`, `refactor`, `deps`/`build` y «Otros cambios». Se ocultan `docs`, `test`, `chore`, `ci`, `style` y los merges. La tabla tipo → sección está en [CONTRIBUTING.md](../CONTRIBUTING.md).
 - `before.hooks` ejecuta `go mod tidy`.
 
@@ -70,8 +70,10 @@ Probar el release sin publicar (requiere instalar goreleaser: `go install github
 
 ```bash
 goreleaser check                            # valida .goreleaser.yaml (también corre en CI)
-goreleaser release --snapshot --clean       # construye todo en ./dist sin tag ni publicación (NO genera changelog)
+goreleaser release --snapshot --clean --skip=publish   # construye todo en ./dist sin tag ni publicación (NO genera changelog)
+ls dist                                     # MooFetch-Linux.tar.gz  MooFetch-Mac.zip  MooFetch-Windows.zip  checksums.txt (+ carpetas intermedias)
 ./dist/moofetch_linux_amd64_v1/moofetch --version
+file dist/moofetch_darwin_all/moofetch      # Mach-O universal binary with 2 architectures
 ```
 
 Para previsualizar las **notas** hace falta un tag local (`goreleaser release --clean --skip=publish,validate`, luego `dist/CHANGELOG.md`); detalle en [CONTRIBUTING.md](../CONTRIBUTING.md). El patchnote por item de trazabilidad sale de `go run scripts/gen-traceability.go -notes vX.Y.Z`.

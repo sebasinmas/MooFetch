@@ -66,7 +66,7 @@ Aparte, el patchnote **funcional** (por item de trazabilidad, no por commit) sal
 go run scripts/gen-traceability.go -notes v1.2.0
 ```
 
-Validar solo la configuración: `goreleaser check`.
+Validar solo la configuración: `goreleaser check`. Para probar el empaquetado sin publicar: `goreleaser release --snapshot --clean --skip=publish`; `ls dist` debe mostrar exactamente `MooFetch-Windows.zip`, `MooFetch-Linux.tar.gz`, `MooFetch-Mac.zip` y `checksums.txt` (más carpetas intermedias). Esos nombres son fijos (sin versión): no los cambies, porque el README enlaza a `releases/latest/download/<archivo>`.
 
 ## Seguridad
 
