@@ -19,7 +19,7 @@ const CookieName = "MoodleSession"
 
 var (
 	// ErrCookieNotFound means no session cookie exists for the domain.
-	ErrCookieNotFound = errors.New("no se encontró la cookie de sesión en los navegadores locales")
+	ErrCookieNotFound = errors.New("No se ha encontrado la cookie ¿Ya iniciaste sesión en tu campus virtual?") //nolint:staticcheck // mensaje de cara al usuario, fijado por el dueño del proyecto
 	// ErrUnsupported means browser detection is unavailable in this build.
 	ErrUnsupported = errors.New("la detección automática no está disponible en esta compilación")
 	// ErrInvalidDomain means the supplied domain is not a valid host name.

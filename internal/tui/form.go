@@ -203,7 +203,7 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 // RunInteractiveForm launches the startup splash screen and seamlessly transitions
 // into the 2-step Huh form using Bubble Tea.
 func RunInteractiveForm(isDemo ...bool) (*FormData, error) {
-	return runForm(NewInteractiveForm(isDemo...))
+	return runForm(NewInteractiveForm(isDemo...), true)
 }
 
 // testInput, when non-nil, supplies a fresh input reader for every interactive
@@ -218,7 +218,24 @@ func programOptions() []tea.ProgramOption {
 	return []tea.ProgramOption{tea.WithInput(testInput()), tea.WithOutput(io.Discard)}
 }
 
-func runForm(ctrl *FormController) (*FormData, error) {
+// runForm runs the form. With withSplash the logo is shown first inside the
+// same Bubble Tea program; without it the form runs on its own (used after the
+// auth step, which already showed the splash).
+func runForm(ctrl *FormController, withSplash bool) (*FormData, error) {
+	if !withSplash {
+		form := ctrl.Form
+		if testInput != nil {
+			form = form.WithInput(testInput()).WithOutput(io.Discard)
+		}
+		if err := form.Run(); err != nil {
+			if errors.Is(err, huh.ErrUserAborted) {
+				return nil, ErrFormAborted
+			}
+			return nil, err
+		}
+		return ctrl.GetData(), nil
+	}
+
 	splash := NewSplash(ctrl.Form)
 
 	p := tea.NewProgram(splash, programOptions()...)

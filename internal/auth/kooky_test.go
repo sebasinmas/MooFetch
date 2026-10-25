@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io/fs"
 	"strings"
 	"testing"
 	"time"
@@ -96,6 +98,22 @@ func TestKookyProvider_Find_ReportsReadErrorWhenNothingFound(t *testing.T) {
 	_, err := KookyProvider{}.Find(context.Background(), "campus.example.cl")
 	if !errors.Is(err, ErrCookieNotFound) || !strings.Contains(err.Error(), "database is locked") {
 		t.Fatalf("error should wrap ErrCookieNotFound and mention the cause, got %v", err)
+	}
+}
+
+func TestKookyProvider_Find_MissingStoreIsNotFoundWithoutDetail(t *testing.T) {
+	missing := &fs.PathError{Op: "open", Path: "/home/u/.local/share/uzbl/session-cookies.txt", Err: fs.ErrNotExist}
+	stubTraverse(t, fakeEntry{err: missing}, fakeEntry{err: fmt.Errorf("wrapped: %w", missing)})
+	_, err := KookyProvider{}.Find(context.Background(), "campus.example.cl")
+	if err != ErrCookieNotFound {
+		t.Fatalf("want exactly ErrCookieNotFound, got %v", err)
+	}
+	if msg := err.Error(); strings.Contains(msg, "uzbl") || strings.Contains(msg, "/") {
+		t.Errorf("message must not leak store paths: %q", msg)
+	}
+	want := "No se ha encontrado la cookie ¿Ya iniciaste sesión en tu campus virtual?"
+	if err.Error() != want {
+		t.Errorf("message = %q, want %q", err.Error(), want)
 	}
 }
 

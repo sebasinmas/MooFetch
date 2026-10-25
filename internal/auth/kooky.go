@@ -2,7 +2,9 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"strings"
 	"time"
 
@@ -38,10 +40,11 @@ var traverseCookies = func(ctx context.Context, domain string) kooky.CookieSeq {
 }
 
 // ignorableStoreError reports read errors that only mean "this browser type does
-// not exist on this system" (for example Internet Explorer on Linux). They must
-// not hide the real reason in the message shown to the user.
+// not exist on this system" (for example Internet Explorer on Linux, or a
+// browser that is not installed so its cookie file is missing). They must not
+// hide the real reason in the message shown to the user.
 func ignorableStoreError(err error) bool {
-	return strings.Contains(err.Error(), "not implemented")
+	return errors.Is(err, fs.ErrNotExist) || strings.Contains(err.Error(), "not implemented")
 }
 
 // Find returns the most recently created, non-expired session cookie as

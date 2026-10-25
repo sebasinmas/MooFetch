@@ -34,7 +34,7 @@ func resolveHeadlessCookie(ctx context.Context, explicit string) (string, error)
 		if derr == nil {
 			return c, nil
 		}
-		fmt.Fprintf(os.Stderr, "No se pudo detectar la cookie de %s: %v\n", domain, derr)
+		fmt.Fprintf(os.Stderr, "%v\n", derr)
 	}
 	return tui.NormalizeCookie(os.Getenv("MOODLE_SESSION")), nil
 }
