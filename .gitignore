@@ -43,3 +43,4 @@ moofetch_debug.txt
 
 # Binarios de prueba para Windows (scripts/build-windows-test.sh)
 dist-test/
+dist-test.zip
