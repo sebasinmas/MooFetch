@@ -81,7 +81,7 @@ func askAuthStep(opts *AuthOptions) (domain string, consent bool, err error) {
 	custom := ""
 	consent = true
 
-	form := huh.NewForm(buildAuthGroups(opts, domain, &choice, &custom, &consent)...).WithTheme(huh.ThemeCharm())
+	form := newForm(buildAuthGroups(opts, domain, &choice, &custom, &consent)...)
 	splash := NewSplash(form)
 	p := tea.NewProgram(splash, programOptions()...)
 	if _, err := p.Run(); err != nil {

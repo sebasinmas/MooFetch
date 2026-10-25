@@ -99,7 +99,7 @@ func scanAndPick(ctx context.Context, opts *AuthOptions, pageURL, cookie string,
 // askCookie asks for the session cookie when detection failed or was refused.
 func askCookie() (string, error) {
 	var cookie string
-	form := huh.NewForm(huh.NewGroup(
+	form := newForm(huh.NewGroup(
 		huh.NewInput().
 			Title("🐄 MooFetch • Cookie de sesión").
 			Description("Pega tu cookie (ej. MoodleSession=65bmfu...). Solo se guarda en memoria.").
@@ -111,7 +111,7 @@ func askCookie() (string, error) {
 				}
 				return nil
 			}),
-	)).WithTheme(huh.ThemeCharm())
+	))
 	if err := runHuh(form); err != nil {
 		return "", err
 	}
@@ -126,14 +126,14 @@ func askPageURL(campus, prefill string) (string, error) {
 	if campus != "" {
 		placeholder = "https://" + campus + "/course/view.php?id=123"
 	}
-	form := huh.NewForm(huh.NewGroup(
+	form := newForm(huh.NewGroup(
 		huh.NewInput().
 			Title("🐄 MooFetch • ¿Qué página del curso quieres leer?").
 			Description("Pega la URL del curso o de una sección. Déjalo vacío para pegar los enlaces a mano.").
 			Placeholder(placeholder).
 			Value(&pageURL).
 			Validate(func(s string) error { return validatePageURL(s, campus) }),
-	)).WithTheme(huh.ThemeCharm())
+	))
 	if err := runHuh(form); err != nil {
 		return "", err
 	}
@@ -160,7 +160,7 @@ func validatePageURL(raw, campus string) error {
 
 // askRetryOrManual is shown after a failed or empty scan.
 func askRetryOrManual() (manual bool, err error) {
-	form := huh.NewForm(huh.NewGroup(
+	form := newForm(huh.NewGroup(
 		huh.NewSelect[bool]().
 			Title("¿Qué quieres hacer?").
 			Options(
@@ -168,7 +168,7 @@ func askRetryOrManual() (manual bool, err error) {
 				huh.NewOption("Pegar los enlaces a mano", true),
 			).
 			Value(&manual),
-	)).WithTheme(huh.ThemeCharm())
+	))
 	if err := runHuh(form); err != nil {
 		return false, err
 	}
@@ -185,7 +185,7 @@ func selectResources(found []Resource) ([]string, error) {
 	}
 
 	var picked []string
-	form := huh.NewForm(huh.NewGroup(
+	form := newForm(huh.NewGroup(
 		huh.NewMultiSelect[string]().
 			Title(fmt.Sprintf("🐄 MooFetch • Elige qué descargar (%d recursos)", len(found))).
 			Description("Todo viene marcado: desmarca lo que no quieras.").
@@ -199,7 +199,7 @@ func selectResources(found []Resource) ([]string, error) {
 				}
 				return nil
 			}),
-	)).WithTheme(huh.ThemeCharm())
+	))
 	if err := runHuh(form); err != nil {
 		return nil, err
 	}

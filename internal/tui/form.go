@@ -113,8 +113,6 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 		rawURLs string
 	)
 
-	theme := huh.ThemeCharm()
-
 	cookieValidator := func(s string) error {
 		if strings.TrimSpace(s) == "" {
 			return errors.New("la cookie de sesión no puede estar vacía")
@@ -175,7 +173,7 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 		cookie = preCookie
 		groups = []*huh.Group{step2}
 	}
-	form := huh.NewForm(groups...).WithTheme(theme)
+	form := newForm(groups...)
 
 	return &FormController{
 		Form: form,

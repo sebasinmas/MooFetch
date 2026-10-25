@@ -266,12 +266,12 @@
   {
     "id": "TR-025",
     "titulo": "Asistente interactivo: elegir recursos escaneados en vez de pegar enlaces",
-    "descripcion": "El asistente pide la URL de una página del curso (el host debe ser el del campus elegido), la lee con el escáner mostrando un spinner y presenta los nombres de los recursos con todos marcados; Espacio desmarca, Ctrl+A alterna todos, / filtra. El pegado manual de enlaces queda como alternativa (URL vacía o escaneo fallido, incluida la sesión expirada) y es el único paso en --demo. Pendiente: verlo en un terminal real contra el campus (TR-022).",
+    "descripcion": "El asistente pide la URL de una página del curso (el host debe ser el del campus elegido), la lee con el escáner mostrando un spinner y presenta los nombres de los recursos con todos marcados; Espacio desmarca, Ctrl+A alterna todos, / filtra. El pegado manual de enlaces queda como alternativa (URL vacía o escaneo fallido, incluida la sesión expirada) y es el único paso en --demo. Todas las ayudas de teclado del pie de los formularios están en español (internal/tui/keymap.go). Pendiente: verlo en un terminal real contra el campus (TR-022).",
     "fecha": "2026-10-24",
     "estado": "en proceso",
     "rama": "feature/tui-cli-scan-releases",
     "commit": "51e556f",
     "version": null,
-    "evidencia": ["internal/tui/scanstep.go", "internal/tui/scanstep_test.go", "internal/tui/authstep.go", "cmd/moofetch/auth.go", "cmd/moofetch/scan.go", "docs/adr/005-scan-de-recursos.md"]
+    "evidencia": ["internal/tui/scanstep.go", "internal/tui/scanstep_test.go", "internal/tui/keymap.go", "internal/tui/authstep.go", "cmd/moofetch/auth.go", "cmd/moofetch/scan.go", "docs/adr/005-scan-de-recursos.md"]
   }
 ]
