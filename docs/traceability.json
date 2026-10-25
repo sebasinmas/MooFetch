@@ -298,8 +298,8 @@
   },
   {
     "id": "TR-028",
-    "titulo": "Configuración local de asistentes de IA fuera del repositorio",
-    "descripcion": "Se agrega .claude/ al .gitignore y se deja de versionar .claude/agents/test-coverage-engineer.md (el archivo sigue en la máquina de quien lo usa; el historial anterior lo conserva). TASK-06 ya no enlaza a esa ruta.",
+    "titulo": "Configuración local de asistentes de IA fuera del repositorio (.claude/ y CLAUDE.md)",
+    "descripcion": "Se agregan .claude/ y CLAUDE.md al .gitignore y se dejan de versionar .claude/agents/test-coverage-engineer.md y CLAUDE.md (los archivos siguen en la máquina de quien los usa; el historial anterior los conserva). TASK-06 ya no enlaza a esa ruta.",
     "fecha": "2026-10-25",
     "estado": "en proceso",
     "rama": "chore/ignore-claude",

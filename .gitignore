@@ -35,6 +35,7 @@ todo/
 
 # Configuración local de asistentes de IA (no forma parte del proyecto)
 .claude/
+CLAUDE.md
 
 # GoReleaser output and debug logs
 dist/

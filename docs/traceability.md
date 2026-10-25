@@ -46,7 +46,7 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-025 | Asistente interactivo: elegir recursos escaneados en vez de pegar enlaces | 2026-10-24 | implementado | `develop` / `51e556f` | v2.0.0 |
 | TR-026 | Modo --demo guiado y cinta VHS para el video del README | 2026-10-25 | en proceso | `feature/demo-vhs` / `57549aa` | — |
 | TR-027 | README orientado a nuevos usuarios, con demo arriba y badges de estado | 2026-10-25 | en proceso | `feature/demo-vhs` / `bc7b0b3` | — |
-| TR-028 | Configuración local de asistentes de IA fuera del repositorio | 2026-10-25 | en proceso | `chore/ignore-claude` / `56627c8` | — |
+| TR-028 | Configuración local de asistentes de IA fuera del repositorio (.claude/ y CLAUDE.md) | 2026-10-25 | en proceso | `chore/ignore-claude` / `56627c8` | — |
 <!-- END TABLE -->
 
 ## Notas
