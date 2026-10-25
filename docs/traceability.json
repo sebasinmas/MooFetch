@@ -273,5 +273,38 @@
     "commit": "51e556f",
     "version": "v2.0.0",
     "evidencia": ["internal/tui/scanstep.go", "internal/tui/scanstep_test.go", "internal/tui/keymap.go", "internal/tui/authstep.go", "cmd/moofetch/auth.go", "cmd/moofetch/scan.go", "docs/adr/005-scan-de-recursos.md"]
+  },
+  {
+    "id": "TR-026",
+    "titulo": "Modo --demo guiado y cinta VHS para el video del README",
+    "descripcion": "--demo recorre ahora el asistente completo con una cookie y un escaneo simulados (sin red ni navegador): logo, campus, consentimiento con aviso de modo demo, URL del curso, lectura con spinner, selección por nombre y descargas simuladas. docs/demo/demo.tape (VHS) genera docs/assets/demo.gif, incrustado en el README. Corrige un defecto visible: la línea del spinner de lectura quedaba impresa sobre la lista de selección.",
+    "fecha": "2026-10-25",
+    "estado": "en proceso",
+    "rama": "feature/demo-vhs",
+    "commit": "57549aa",
+    "version": null,
+    "evidencia": ["cmd/moofetch/demo.go", "cmd/moofetch/demo_test.go", "internal/tui/authstep.go", "internal/tui/scanstep.go", "docs/demo/demo.tape", "docs/assets/demo.gif", "README.md"]
+  },
+  {
+    "id": "TR-027",
+    "titulo": "README orientado a nuevos usuarios, con demo arriba y badges de estado",
+    "descripcion": "README reorganizado para quien llega por primera vez: título, badges dinámicos (CI de main, última release, descargas, versión de Go, licencia) y el GIF de demo arriba; por qué usarlo (incluido cargar todo el curso en NotebookLM); instalación con guía amd64/arm64 por sistema; uso paso a paso; pipelines, referencia, privacidad y roadmap; y al final lo técnico (compilar, arquitectura). ci.yml ahora también corre en push a main para que el badge de CI muestre un estado real.",
+    "fecha": "2026-10-25",
+    "estado": "en proceso",
+    "rama": "feature/demo-vhs",
+    "commit": "bc7b0b3",
+    "version": null,
+    "evidencia": ["README.md", ".github/workflows/ci.yml", "docs/workflow.md", "docs/assets/demo.gif"]
+  },
+  {
+    "id": "TR-028",
+    "titulo": "Configuración local de asistentes de IA fuera del repositorio (.claude/ y CLAUDE.md)",
+    "descripcion": "Se agregan .claude/ y CLAUDE.md al .gitignore y se dejan de versionar .claude/agents/test-coverage-engineer.md y CLAUDE.md (los archivos siguen en la máquina de quien los usa; el historial anterior los conserva). TASK-06 ya no enlaza a esa ruta.",
+    "fecha": "2026-10-25",
+    "estado": "en proceso",
+    "rama": "chore/ignore-claude",
+    "commit": "56627c8",
+    "version": null,
+    "evidencia": [".gitignore", "docs/tasks/TASK-06-coverage-80.md"]
   }
 ]

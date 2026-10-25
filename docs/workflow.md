@@ -19,6 +19,15 @@ go build -ldflags "-s -w \
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -o bin/moofetch.exe ./cmd/moofetch
 ```
 
+Demo para el README (`docs/assets/demo.gif`), grabado con [VHS](https://github.com/charmbracelet/vhs) (requiere `vhs`, `ttyd` y `ffmpeg`):
+
+```bash
+go build -o bin/moofetch ./cmd/moofetch
+vhs docs/demo/demo.tape      # regenera docs/assets/demo.gif (~35 s, ~600 KB)
+```
+
+La cinta usa `moofetch --demo` (cookie y escaneo simulados, ver `cmd/moofetch/demo.go`); sus `Sleep` esperan a esos pasos, así que si cambias las pausas simuladas o el orden de las pantallas, ajusta también `docs/demo/demo.tape`.
+
 Calidad antes de subir (lo mismo que valida CI, más el linter):
 
 ```bash
@@ -28,7 +37,7 @@ go test -race ./...
 ```
 
 ## 2. CI (`.github/workflows/`)
-Se dispara en **pull requests** hacia `main` y `develop` (no en push directo). Jobs de `ci.yml`:
+Se dispara en **pull requests** hacia `main` y `develop`, y en los **push a `main`** (así el badge de CI del README refleja el estado real de `main`). Jobs de `ci.yml`:
 
 - `lint`: formato con `gofmt`.
 - `golangci-lint`: análisis estático con la config de `.golangci.yml` (formato v2; la acción es `golangci-lint-action@v7`). Ya corre en CI; cierra el pendiente TR-015 de [traceability.md](traceability.md) una vez fusionado.

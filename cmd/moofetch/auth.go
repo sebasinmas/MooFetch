@@ -50,7 +50,7 @@ func authOptions() (*tui.AuthOptions, error) {
 	for _, u := range auth.Universities() {
 		unis = append(unis, tui.University{Name: u.Name, Domain: u.Domain})
 	}
-	return &tui.AuthOptions{
+	opts := &tui.AuthOptions{
 		Universities:   unis,
 		ValidateDomain: auth.ValidateDomain,
 		Domain:         domain,
@@ -59,7 +59,11 @@ func authOptions() (*tui.AuthOptions, error) {
 		Detect: func(ctx context.Context, d string) (string, error) {
 			return auth.Detect(ctx, cookieProvider, d)
 		},
-	}, nil
+	}
+	if flagDemo {
+		opts = withDemo(opts)
+	}
+	return opts, nil
 }
 
 // scanForTUI lists a course page's resources for the interactive selection.

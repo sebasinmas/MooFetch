@@ -6,6 +6,10 @@ on:
       - main
       - develop
     types: [opened, synchronize, reopened]
+  # Valida también el commit resultante en main: alimenta el badge de CI del README.
+  push:
+    branches:
+      - main
 
 # Cancelar ejecuciones previas de la misma PR si se envían nuevos commits
 concurrency:
