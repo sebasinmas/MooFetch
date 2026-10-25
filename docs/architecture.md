@@ -152,12 +152,12 @@ graph TD
 - **Firefox:** `MoodleSession` es una cookie de sesión y Firefox no la guarda en `cookies.sqlite` (que es lo que lee kooky); vive en `sessionstore-backups/recovery.jsonlz4`. `internal/auth/firefox.go` lee ese respaldo (fusionado desde `fix/cookie-autodetect`); falta la verificación manual (TR-019).
 - El texto de consentimiento del TUI (`internal/tui/authstep.go`) lista todos los navegadores que busca kooky.
 - **No** importa `kernel` ni `tui`. El Composition Root (`cmd/moofetch`) lo cablea y entrega el resultado al formulario o al modo headless.
-- Flujo real del modo interactivo (orden del código hoy): seleccionar universidad → mensaje de consentimiento → búsqueda en el navegador → **splash con el logo** → formulario de URLs (y de cookie solo si no se detectó; si falla o se rechaza, pegado manual / `MOODLE_SESSION`). El paso de campus corre *antes* del logo; el orden decidido es logo primero, aún no implementado (TR-018 en proceso, [TASK-09](tasks/TASK-09-orden-logo-campus.md)). La cookie nunca se persiste ni se registra sin ofuscar.
+- Flujo del modo interactivo (TR-018): **splash con el logo** → seleccionar universidad → consentimiento (una decisión por pantalla) → búsqueda en el navegador → formulario de URLs (y de cookie solo si no se detectó; si falla o se rechaza, pegado manual / `MOODLE_SESSION`). El splash y el formulario de campus/consentimiento corren en un mismo programa Bubble Tea; el formulario de cookie/URLs va aparte, sin repetir el logo ([TASK-09](tasks/TASK-09-orden-logo-campus.md)). La cookie nunca se persiste ni se registra sin ofuscar.
 
 ### 3.6. Capa de Presentación de Terminal (`internal/tui`)
 - Centraliza toda la interacción con el usuario en terminal:
   - Formulario interactivo con `huh`.
-  - Pantalla splash con la identidad MooFetch (vaca 🐄 en banner, formulario y tarjeta de progreso); se muestra al abrir el formulario, es decir, después del paso de campus/consentimiento.
+  - Pantalla splash con la identidad MooFetch (vaca 🐄 en banner, formulario y tarjeta de progreso); se muestra primero, antes del paso de campus/consentimiento.
   - Vista reactiva de progreso en tarjeta con Bubble Tea (`tea.Model`) y Lipgloss (soporte `NO_COLOR` y paletas adaptativas).
   - Ejecución en texto plano headless para tuberías Unix (`RunHeadlessProgress`).
 

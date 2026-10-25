@@ -129,16 +129,16 @@ Ideal para el uso diario en terminales interactivas:
 moofetch
 ```
 
-Flujo real del asistente, en el orden en que se ejecuta hoy:
+Flujo del asistente (cada decisión tiene su propia pantalla):
 
-1. **Campus:** eliges tu universidad (por ejemplo `campusvirtual.ufro.cl`) o ingresas otro dominio, y aceptas o rechazas la detección automática de la cookie.
-2. **Splash:** se muestra el logo de MooFetch con la vaca 🐄 y se abre el formulario.
-3. **Formulario de dos pasos (cookie y URLs):**
-   1. Cookie de sesión (`MoodleSession=...`): la pegas a mano. Si la detección automática tuvo éxito, este paso se omite.
-   2. Lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
-4. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
+1. **Splash:** se muestra el logo de MooFetch con la vaca 🐄.
+2. **Campus:** eliges tu universidad (por ejemplo `campusvirtual.ufro.cl`) o «Otra…» e ingresas el dominio. Con `--uni` o `--domain` esta pantalla se omite.
+3. **Consentimiento:** aceptas o rechazas la detección automática de la cookie en tu navegador. Si no encuentra la cookie (por ejemplo, porque aún no iniciaste sesión en el campus), te lo dice y pasas a pegarla.
+4. **Cookie** (`MoodleSession=...`): solo si la detección falló o la rechazaste.
+5. **Enlaces:** la lista de URLs de tus documentos (puedes pegar múltiples líneas a la vez).
+6. Presiona `Esc` + `Enter` y visualiza la descarga concurrente con barras de avance por archivo y porcentaje global.
 
-> **Nota:** en el código actual el paso de campus ocurre *antes* del logo. El orden decidido es logo primero, aún no implementado ([TR-018](docs/traceability.md)). La detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox (cookie de sesión desde la copia de la sesión) ya está fusionado, y la verificación manual en cada navegador sigue pendiente.
+> **Nota:** la detección automática de la cookie está descrita en el [ADR 003](docs/adr/003-deteccion-automatica-de-token.md); el soporte de Firefox (cookie de sesión desde la copia de la sesión) ya está fusionado, y la verificación manual en cada navegador sigue pendiente.
 
 ---
 

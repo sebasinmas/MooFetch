@@ -1,5 +1,5 @@
 # TASK-09: Mostrar el logo antes de la selección de campus
-- **Estado:** En proceso (decisión tomada: logo primero; código pendiente)
+- **Estado:** Implementado en la rama `feature/tui-cli-scan-releases` (commit `52df60b`); falta la verificación visual en un terminal real
 - **Prioridad:** 🟢 Baja · **Depende de:** TASK-04
 - **Referencia:** TR-018 en [traceability.md](../traceability.md)
 
@@ -14,6 +14,7 @@ El orden decidido por el dueño es: logo con la vaca → selección de campus �
 
 ## DoD
 - [x] Decisión registrada: logo primero (2026-10-19, dueño del proyecto).
-- [ ] Splash visible antes del paso de campus en el modo interactivo.
-- [ ] Tests del orden en `internal/tui`, deterministas y sin TTY.
-- [ ] Docs y TR-018 alineados con el comportamiento real; `gofmt -l .` vacío y `golangci-lint run` sin issues.
+- [x] Splash visible antes del paso de campus en el modo interactivo.
+- [x] Tests del orden en `internal/tui`, deterministas y sin TTY.
+- [x] Docs y TR-018 alineados con el comportamiento real; `gofmt -l .` vacío y `golangci-lint run` sin issues.
+- [ ] Verificación visual en un terminal real (logo → campus → consentimiento → enlaces).

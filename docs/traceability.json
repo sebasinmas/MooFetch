@@ -24,7 +24,7 @@
   {
     "id": "TR-003",
     "titulo": "Logo / splash con vaca (marca MooFetch)",
-    "descripcion": "Pantalla splash con banner de vaca (e2c6510); identidad MooFetch aplicada al banner, formulario y tarjeta de progreso en el rebranding (68ef9f3). Respeta NO_COLOR. Nota: en el código el splash aparece DESPUÉS del paso de campus/consentimiento (ver TR-018).",
+    "descripcion": "Pantalla splash con banner de vaca (e2c6510); identidad MooFetch aplicada al banner, formulario y tarjeta de progreso en el rebranding (68ef9f3). Respeta NO_COLOR. El splash se muestra antes del paso de campus/consentimiento (TR-018).",
     "fecha": "2026-09-03",
     "estado": "implementado",
     "rama": "develop",
@@ -156,11 +156,11 @@
   {
     "id": "TR-015",
     "titulo": "golangci-lint en CI",
-    "descripcion": "El linter (.golangci.yml) hoy solo se ejecuta en local; falta añadirlo a ci.yml.",
-    "fecha": null,
-    "estado": "por implementar",
-    "rama": null,
-    "commit": null,
+    "descripcion": "Jobs de CI nuevos en ci.yml: golangci-lint (v2, config .golangci.yml), verificación de la tabla de trazabilidad y goreleaser check. Aún no se han ejecutado en GitHub; se verán en la PR a develop.",
+    "fecha": "2026-10-24",
+    "estado": "en proceso",
+    "rama": "feature/tui-cli-scan-releases",
+    "commit": "e821d2f",
     "version": null,
     "evidencia": [".golangci.yml", ".github/workflows/ci.yml", "docs/workflow.md"]
   },
@@ -188,14 +188,14 @@
   },
   {
     "id": "TR-018",
-    "titulo": "Orden del flujo interactivo: logo antes del campus",
-    "descripcion": "En el código el paso de campus/consentimiento (internal/tui/authstep.go) corre ANTES del splash/logo (form.go, runForm). Decisión del dueño (2026-10-19): logo primero. Implementación en proceso en TASK-09; aún no hay rama ni commit.",
-    "fecha": null,
+    "titulo": "Orden del flujo interactivo: logo, campus y consentimiento en pantallas separadas",
+    "descripcion": "Flujo: logo -> campus -> (dominio propio) -> consentimiento -> detección -> (cookie manual) -> enlaces. Cada decisión tiene su pantalla y el splash va primero, dentro del mismo programa Bubble Tea que el formulario de campus. Mensaje de cookie no encontrada: «No se ha encontrado la cookie ¿Ya iniciaste sesión en tu campus virtual?». Pendiente: verificación visual en un terminal real (TASK-09).",
+    "fecha": "2026-10-24",
     "estado": "en proceso",
-    "rama": null,
-    "commit": null,
+    "rama": "feature/tui-cli-scan-releases",
+    "commit": "52df60b",
     "version": null,
-    "evidencia": ["internal/tui/authstep.go", "internal/tui/form.go", "docs/tasks/TASK-09-orden-logo-campus.md"]
+    "evidencia": ["internal/tui/authstep.go", "internal/tui/form.go", "internal/auth/kooky.go", "internal/auth/auth.go", "docs/tasks/TASK-09-orden-logo-campus.md"]
   },
   {
     "id": "TR-019",
@@ -215,8 +215,52 @@
     "fecha": "2026-10-19",
     "estado": "implementado",
     "rama": "develop",
-    "commit": null,
+    "commit": "1b006e8",
     "version": null,
     "evidencia": ["cmd/moofetch/cookie_integration_test.go", "internal/plugins/moodle/integration_test.go", "internal/kernel/dispatch_moodle_integration_test.go", "internal/auth/cookie_format_test.go", "internal/plugins/moodle/moodle.go", "internal/tui/form.go"]
+  },
+  {
+    "id": "TR-021",
+    "titulo": "Comando scan: listar recursos de una página del campus (experimental)",
+    "descripcion": "moofetch scan <url> lee una página de curso con la cookie y escribe un enlace de recurso por línea en stdout (se canaliza a run). Peticiones secuenciales con pausa y jitter, respeta Retry-After ante 429/503, tope de páginas y se detiene si la sesión expiró. Solo probado con servidores falsos; la prueba contra el campus real es TR-022.",
+    "fecha": "2026-10-24",
+    "estado": "en proceso",
+    "rama": "feature/tui-cli-scan-releases",
+    "commit": "480c4a1",
+    "version": null,
+    "evidencia": ["cmd/moofetch/scan.go", "internal/plugins/moodle/scan.go", "internal/plugins/moodle/scan_test.go", "docs/adr/005-scan-de-recursos.md"]
+  },
+  {
+    "id": "TR-022",
+    "titulo": "Verificación manual de scan contra el campus real",
+    "descripcion": "Ejecutar moofetch scan sobre un curso real (UFRO) con sesión iniciada y confirmar: enlaces presentes en el HTML sin JS, resource/view.php redirige a pluginfile.php, carpetas, y qué enlaces pluginfile no son material (avatares, imágenes). El resultado decide si scan se queda o se adelanta la extensión de navegador (TR-016). Ver ADR 005.",
+    "fecha": null,
+    "estado": "por implementar",
+    "rama": null,
+    "commit": null,
+    "version": null,
+    "evidencia": ["docs/adr/005-scan-de-recursos.md"]
+  },
+  {
+    "id": "TR-023",
+    "titulo": "Ayuda de la CLI legible: flags agrupadas, códigos de salida y pipeline compartido",
+    "descripcion": "--help en español con flags agrupadas (Entrada, Descarga, Sesión, Salida, Otros) y sección de códigos de salida; el comando raíz y run comparten collectURLs, resolveCookie y execute. Cambio de comportamiento: el comando raíz ahora normaliza -k igual que run. Los encabezados de la ayuda están en español (Uso:, Ejemplos:).",
+    "fecha": "2026-10-24",
+    "estado": "en proceso",
+    "rama": "feature/tui-cli-scan-releases",
+    "commit": "75410f2",
+    "version": null,
+    "evidencia": ["cmd/moofetch/help.go", "cmd/moofetch/input.go", "cmd/moofetch/root.go", "cmd/moofetch/run.go", "README.md"]
+  },
+  {
+    "id": "TR-024",
+    "titulo": "Patchnotes legibles en GitHub: changelog agrupado y validación de títulos de PR",
+    "descripcion": "GoReleaser reorganizado: grupos (incompatibles, feat, fix, seguridad, rendimiento, refactor, dependencias), header con verificación de checksums y footer con comparación de tags. Workflow que valida títulos de PR convencionales, plantilla de PR con nota de versión y CONTRIBUTING.md. Los workflows aún no se han ejecutado en GitHub.",
+    "fecha": "2026-10-24",
+    "estado": "en proceso",
+    "rama": "feature/tui-cli-scan-releases",
+    "commit": "e821d2f",
+    "version": null,
+    "evidencia": [".goreleaser.yaml", ".github/workflows/pr-title.yml", ".github/pull_request_template.md", "CONTRIBUTING.md", "docs/workflow.md"]
   }
 ]
