@@ -45,26 +45,35 @@ MOODLE_SESSION, en ese orden.`,
 	},
 }
 
-// runScan scans pageURL and writes one downloadable URL per line to out and a
-// short summary to diag, so stdout stays clean for pipes.
-func runScan(ctx context.Context, p *moodle.Plugin, pageURL, cookie string, opts moodle.ScanOptions, out, diag io.Writer) error {
+// scanResources scans pageURL and returns the downloadable links, dropping
+// folder entries (their files already come expanded as pluginfile links).
+func scanResources(ctx context.Context, p *moodle.Plugin, pageURL, cookie string, opts moodle.ScanOptions) ([]moodle.Link, error) {
 	moodle.UserAgentVersion = Version
 	links, err := p.ScanPage(ctx, pageURL, cookie, opts)
 	if err != nil {
+		return nil, err
+	}
+	out := links[:0:0]
+	for _, l := range links {
+		if l.Kind != moodle.KindFolder {
+			out = append(out, l)
+		}
+	}
+	return out, nil
+}
+
+// runScan scans pageURL and writes one downloadable URL per line to out and a
+// short summary to diag, so stdout stays clean for pipes.
+func runScan(ctx context.Context, p *moodle.Plugin, pageURL, cookie string, opts moodle.ScanOptions, out, diag io.Writer) error {
+	links, err := scanResources(ctx, p, pageURL, cookie, opts)
+	if err != nil {
 		return fmt.Errorf("no se pudo escanear la página: %w", err)
 	}
-
-	resources, folders := 0, 0
 	for _, l := range links {
-		if l.Kind == moodle.KindFolder {
-			folders++
-			continue // el contenido de la carpeta ya viene expandido como pluginfile
-		}
-		resources++
 		_, _ = fmt.Fprintln(out, l.URL)
 		_, _ = fmt.Fprintf(diag, "  %-10s %s\n", l.Kind, l.Title)
 	}
-	_, _ = fmt.Fprintf(diag, "%d recursos encontrados (%d carpetas expandidas)\n", resources, folders)
+	_, _ = fmt.Fprintf(diag, "%d recursos encontrados\n", len(links))
 	return nil
 }
 

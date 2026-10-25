@@ -22,6 +22,10 @@ type AuthOptions struct {
 	Universities   []University
 	ValidateDomain func(string) (string, error)
 	Detect         func(ctx context.Context, domain string) (string, error)
+	// Scan, when set, replaces the "paste your links" step: the user gives a
+	// course page, Scan lists its resources and they pick what to download.
+	// pageURL is always on the chosen campus. Pasting links stays as a fallback.
+	Scan func(ctx context.Context, pageURL, cookie string) ([]Resource, error)
 	// Domain, when set (from --uni/--domain), skips the university question.
 	Domain string
 	// Notice receives status messages (defaults to discarding).
@@ -61,6 +65,9 @@ func RunInteractiveFormWithAuth(ctx context.Context, opts *AuthOptions, isDemo b
 			cookie = c
 			_, _ = fmt.Fprintln(notice, "Cookie de sesión detectada.")
 		}
+	}
+	if opts.Scan != nil {
+		return runScanFlow(ctx, opts, domain, cookie, notice)
 	}
 	// The splash was already shown before the campus question.
 	return runForm(newInteractiveForm(false, cookie), false)

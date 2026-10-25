@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/sebasinmas/MooFetch/internal/auth"
+	"github.com/sebasinmas/MooFetch/internal/plugins/moodle"
 	"github.com/sebasinmas/MooFetch/internal/tui"
 )
 
@@ -54,8 +55,23 @@ func authOptions() (*tui.AuthOptions, error) {
 		ValidateDomain: auth.ValidateDomain,
 		Domain:         domain,
 		Notice:         os.Stderr,
+		Scan:           scanForTUI,
 		Detect: func(ctx context.Context, d string) (string, error) {
 			return auth.Detect(ctx, cookieProvider, d)
 		},
 	}, nil
+}
+
+// scanForTUI lists a course page's resources for the interactive selection.
+func scanForTUI(ctx context.Context, pageURL, cookie string) ([]tui.Resource, error) {
+	links, err := scanResources(ctx, moodle.New(), pageURL, cookie,
+		moodle.ScanOptions{Delay: flagScanDelay, MaxPages: flagScanMaxPages})
+	if err != nil {
+		return nil, err
+	}
+	found := make([]tui.Resource, len(links))
+	for i, l := range links {
+		found[i] = tui.Resource{Title: l.Title, URL: l.URL}
+	}
+	return found, nil
 }
