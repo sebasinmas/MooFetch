@@ -353,7 +353,7 @@ func hyperlinkBlock(block, target string) string {
 
 // RunProgressUI starts the Bubble Tea parallel download progress interface.
 func RunProgressUI(ctx context.Context, k *kernel.Kernel, tasks []domain.Task, logFilePath string) ([]domain.Result, error) {
-	return runProgressUI(ctx, k, tasks, logFilePath, programOptions()...)
+	return runProgressUI(ctx, k, tasks, logFilePath, inlineProgramOptions()...)
 }
 
 // runProgressUI is RunProgressUI with injectable Bubble Tea options, so tests can run without a controlling TTY.

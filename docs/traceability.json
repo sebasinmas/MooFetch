@@ -451,5 +451,44 @@
       "evidencia": [    "internal/logger",
           "internal/plugins/moodle"
       ]
+  },
+  {
+      "id": "TR-040",
+      "titulo": "Pantallas sin restos en Windows (consolas clásicas)",
+      "descripcion": "Los formularios se dibujan en pantalla alternativa y con símbolos ASCII en consolas antiguas de Windows, las filas se recortan al ancho de la terminal y las carpetas anidadas se abrevian; interruptores MOOFETCH_ALTSCREEN y MOOFETCH_ASCII y línea de terminal en doctor. La causa del halo no está confirmada: la decide la prueba del dueño (TR-035).",
+      "fecha": "2026-10-26",
+      "estado": "en proceso",
+      "rama": "fix/tui-windows-render",
+      "commit": null,
+      "version": null,
+      "evidencia": [    "internal/tui/render.go",
+          "internal/tui/render_test.go"
+      ]
+  },
+  {
+      "id": "TR-041",
+      "titulo": "Carpetas anidadas y rutas largas en Windows",
+      "descripcion": "Fixture de carpetas con varios niveles, rutas recortadas al presupuesto de 240 caracteres en Windows, archivos con el mismo nombre en una carpeta guardados con sufijo (2), (3) y aviso de actividades con archivos que aún no se descargan.",
+      "fecha": "2026-10-26",
+      "estado": "en proceso",
+      "rama": "fix/tui-windows-render",
+      "commit": null,
+      "version": null,
+      "evidencia": [    "cmd/moofetch/paths.go",
+          "internal/plugins/moodle/testdata/api/contents_nested.json"
+      ]
+  },
+  {
+      "id": "TR-042",
+      "titulo": "Nombre del curso y atajos resaltados",
+      "descripcion": "El nombre del curso va como insignia de color en los títulos y las teclas de ayuda se dibujan como botones.",
+      "fecha": "2026-10-26",
+      "estado": "en proceso",
+      "rama": "fix/tui-windows-render",
+      "commit": null,
+      "version": null,
+      "evidencia": [    "internal/tui/keymap.go",
+          "internal/tui/render.go"
+      ]
   }
 ]

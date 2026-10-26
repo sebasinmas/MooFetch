@@ -262,6 +262,9 @@ func (p *Plugin) download(ctx context.Context, task domain.Task, progress domain
 	}
 
 	filename := ExtractFilename(task.URL, resp.Header, task.ID)
+	if task.FileName != "" {
+		filename = sanitizeFilename(task.FileName)
+	}
 	outDir := task.OutputDir
 	if outDir == "" {
 		outDir = "."

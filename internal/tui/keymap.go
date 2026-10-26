@@ -3,11 +3,28 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // newForm builds a huh form with the MooFetch theme and Spanish key help.
 func newForm(groups ...*huh.Group) *huh.Form {
-	return huh.NewForm(groups...).WithTheme(huh.ThemeCharm()).WithKeyMap(spanishKeyMap())
+	return huh.NewForm(groups...).WithTheme(newTheme()).WithKeyMap(spanishKeyMap())
+}
+
+// newTheme is the Charm theme with the key hints drawn as badges (so it is
+// obvious what each key does) and, on consoles that cannot be trusted with wide
+// glyphs, plain ASCII markers.
+func newTheme() *huh.Theme {
+	t := huh.ThemeCharm()
+	t.Help.ShortKey = keyChip
+	t.Help.FullKey = keyChip
+	if currentMode().ASCII {
+		t.Focused.SelectedPrefix = lipgloss.NewStyle().SetString("[x] ").Foreground(lipgloss.Color("#02BF87"))
+		t.Focused.UnselectedPrefix = lipgloss.NewStyle().SetString("[ ] ")
+		t.Blurred.SelectedPrefix = lipgloss.NewStyle().SetString("[x] ")
+		t.Blurred.UnselectedPrefix = lipgloss.NewStyle().SetString("[ ] ")
+	}
+	return t
 }
 
 // spanishKeyMap returns huh's default key map with the contextual help shown

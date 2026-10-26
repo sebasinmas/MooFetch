@@ -58,6 +58,9 @@ La **fecha** es la del commit principal (`git log`). La **versión** es el tag m
 | TR-037 | Autenticación por API móvil: usuario y contraseña a token en memoria | 2026-10-25 | en proceso | `feat/mobile-api` / `82dce39` | — |
 | TR-038 | Navegar cursos, secciones y archivos vía API móvil | 2026-10-25 | en proceso | `feat/mobile-api` / `82dce39` | — |
 | TR-039 | Redacción de tokens, contraseñas y cookies en logs y errores | 2026-10-25 | en proceso | `feat/mobile-api` / `5033295` | — |
+| TR-040 | Pantallas sin restos en Windows (consolas clásicas) | 2026-10-26 | en proceso | `fix/tui-windows-render` | — |
+| TR-041 | Carpetas anidadas y rutas largas en Windows | 2026-10-26 | en proceso | `fix/tui-windows-render` | — |
+| TR-042 | Nombre del curso y atajos resaltados | 2026-10-26 | en proceso | `fix/tui-windows-render` | — |
 <!-- END TABLE -->
 
 ## Notas

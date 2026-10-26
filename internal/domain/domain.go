@@ -45,6 +45,10 @@ type Task struct {
 	// to; empty means the token is never attached.
 	TokenHost string
 	OutputDir string
+	// FileName, when set, is the name the file is saved under instead of the
+	// one the server suggests (used to keep same-named files apart and to fit
+	// long Windows paths). It is sanitized by the plugin.
+	FileName string
 }
 
 // Result captures the final status and outcome of a download task.

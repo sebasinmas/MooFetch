@@ -11,6 +11,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/sebasinmas/MooFetch/internal/auth"
+	"github.com/sebasinmas/MooFetch/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -93,7 +94,8 @@ func runDoctor(ctx context.Context, out, diag io.Writer, domain string, provider
 
 // writeDoctorReport renders the header, the table and the summary.
 func writeDoctorReport(w io.Writer, domain string, reports []auth.StoreReport) {
-	_, _ = fmt.Fprintf(w, "MooFetch v%s | %s/%s | campus: %s\n\n", Version, runtime.GOOS, runtime.GOARCH, domain)
+	_, _ = fmt.Fprintf(w, "MooFetch v%s | %s/%s | campus: %s\n", Version, runtime.GOOS, runtime.GOARCH, domain)
+	_, _ = fmt.Fprintf(w, "Terminal: %s\n\n", tui.TerminalSummary())
 
 	sorted := append([]auth.StoreReport(nil), reports...)
 	sort.SliceStable(sorted, func(i, j int) bool {

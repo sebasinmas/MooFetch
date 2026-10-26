@@ -751,3 +751,35 @@ func TestRefererFor(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestDownload_TaskFileNameOverridesTheServerName(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { servePDF(w) }))
+	defer srv.Close()
+	u := srv.URL + pluginfileTestPath
+	task := domain.Task{ID: 1, URL: u, Token: testToken, TokenHost: hostOf(u), OutputDir: t.TempDir(), FileName: "Guia (2).pdf"}
+	res, err := tokenPlugin(srv, nil).Download(context.Background(), task, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Filename != "Guia (2).pdf" || !fileExists(filepath.Join(task.OutputDir, "Guia (2).pdf")) {
+		t.Errorf("result = %+v", res)
+	}
+	if fileExists(filepath.Join(task.OutputDir, "Guia.pdf")) {
+		t.Error("the server name must not be used when FileName is set")
+	}
+}
+
+func TestDownload_TaskFileNameIsSanitized(t *testing.T) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { servePDF(w) }))
+	defer srv.Close()
+	u := srv.URL + pluginfileTestPath
+	dir := t.TempDir()
+	task := domain.Task{ID: 1, URL: u, Token: testToken, TokenHost: hostOf(u), OutputDir: dir, FileName: "../../evil.pdf"}
+	res, err := tokenPlugin(srv, nil).Download(context.Background(), task, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ContainsAny(res.Filename, `/\`) || !fileExists(filepath.Join(dir, res.Filename)) {
+		t.Errorf("result = %+v", res)
+	}
+}

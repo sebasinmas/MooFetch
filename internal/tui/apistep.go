@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/sebasinmas/MooFetch/internal/domain"
 )
 
@@ -25,6 +27,9 @@ type Section struct {
 	Number int // position in the course, starting at 0
 	Name   string
 	Files  []FileItem
+	// OtherModules counts activities with files that MooFetch cannot download
+	// yet (pages, assignments...).
+	OtherModules int
 }
 
 // FileItem is one downloadable file. URL never carries a secret: the token
@@ -178,7 +183,7 @@ func askCredentials(campus, prefillUser string, demo bool) (user, pass string, e
 	}
 	form := newForm(huh.NewGroup(
 		huh.NewInput().
-			Title(tagged("🐄 MooFetch • Inicia sesión en "+campus, demo)).
+			Title(chipTitle("🐄 MooFetch • Inicia sesión en", campus, demo)).
 			Description("Usa el mismo usuario y contraseña del campus. La contraseña no se guarda ni se registra.").
 			Prompt("Usuario: ").
 			Value(&user).
@@ -301,7 +306,7 @@ func selectCourses(courses []Course, demo bool) ([]Course, error) {
 	for i, c := range courses {
 		names[i] = courseName(c)
 	}
-	labels := dedupeLabels(names)
+	labels := fitRows(dedupeLabels(names))
 	options := make([]huh.Option[int], len(courses))
 	for i := range courses {
 		options[i] = huh.NewOption(labels[i], i)
@@ -309,7 +314,7 @@ func selectCourses(courses []Course, demo bool) ([]Course, error) {
 	var picked []int
 	form := newForm(huh.NewGroup(
 		huh.NewMultiSelect[int]().
-			Title(tagged(fmt.Sprintf("🐄 MooFetch • Elige tus cursos (%d)", len(courses)), demo)).
+			Title(tagged("🐄 MooFetch • Elige tus cursos", demo) + " " + keyChip.Render(strconv.Itoa(len(courses)))).
 			Description("Marca con espacio los cursos que quieres descargar (/ para filtrar).").
 			Options(options...).
 			Height(min(len(courses), maxListHeight) + 4).
@@ -376,10 +381,15 @@ type flatFile struct {
 // download. Sections without files are not offered.
 func pickFromCourse(c Course, sections []Section, notice io.Writer, demo bool) ([]Download, error) {
 	var withFiles []Section
+	other := 0
 	for _, s := range sections {
+		other += s.OtherModules
 		if len(s.Files) > 0 {
 			withFiles = append(withFiles, s)
 		}
+	}
+	if other > 0 {
+		_, _ = fmt.Fprintf(notice, "«%s»: %d actividades (páginas, tareas…) tienen archivos que MooFetch aún no descarga.\n", courseName(c), other)
 	}
 	if len(withFiles) == 0 {
 		_, _ = fmt.Fprintf(notice, "«%s» no tiene archivos descargables.\n", courseName(c))
@@ -424,13 +434,13 @@ func selectSections(c Course, sections []Section, demo bool) ([]Section, error) 
 		if len(s.Files) == 1 {
 			unit = "archivo"
 		}
-		label := fmt.Sprintf("%02d · %s (%d %s)", s.Number, sectionName(s), len(s.Files), unit)
+		label := fitRow(fmt.Sprintf("%02d · %s (%d %s)", s.Number, sectionName(s), len(s.Files), unit), rowWidth())
 		options[i] = huh.NewOption(label, i).Selected(true)
 	}
 	var picked []int
 	form := newForm(huh.NewGroup(
 		huh.NewMultiSelect[int]().
-			Title(tagged("🐄 MooFetch • Secciones de «"+courseName(c)+"»", demo)).
+			Title(chipTitle("🐄 MooFetch • Secciones de", courseName(c), demo)).
 			Description("Todo viene marcado: desmarca lo que no quieras. Sin ninguna marcada se omite el curso.").
 			Options(options...).
 			Height(min(len(sections), maxListHeight) + 4).
@@ -453,7 +463,7 @@ func selectFiles(c Course, flat []flatFile, demo bool) ([]flatFile, error) {
 	for i, ff := range flat {
 		files[i] = ff.file
 	}
-	labels := fileLabels(files)
+	labels := fitRows(fileLabels(files))
 	options := make([]huh.Option[int], len(flat))
 	for i := range flat {
 		options[i] = huh.NewOption(labels[i], i).Selected(true)
@@ -461,7 +471,7 @@ func selectFiles(c Course, flat []flatFile, demo bool) ([]flatFile, error) {
 	var picked []int
 	form := newForm(huh.NewGroup(
 		huh.NewMultiSelect[int]().
-			Title(tagged(fmt.Sprintf("🐄 MooFetch • Archivos de «%s» (%d)", courseName(c), len(flat)), demo)).
+			Title(chipTitle(fmt.Sprintf("🐄 MooFetch • %d archivos de", len(flat)), courseName(c), demo)).
 			Description("Todo viene marcado: desmarca lo que no quieras. Sin ninguno marcado se omite el curso.").
 			Options(options...).
 			Height(min(len(flat), maxListHeight) + 4).
@@ -492,7 +502,7 @@ func fileLabels(files []FileItem) []string {
 			name = fmt.Sprintf("Archivo %d", i+1)
 		}
 		if sub := strings.Trim(strings.Join(strings.Fields(f.SubDir), " "), `/\ `); sub != "" {
-			name += " — " + sub
+			name += " — " + shortenPath(sub, maxSubWidth)
 		}
 		base[i] = name
 	}
@@ -604,4 +614,28 @@ func spinWhile[T any](ctx context.Context, title string, fn func(context.Context
 		return zero, ErrFormAborted
 	}
 	return val, err
+}
+
+// chipTitle is a screen title that ends with the course (or campus) name as a
+// highlighted badge, so it is clear which one the screen is about.
+func chipTitle(prefix, name string, demo bool) string {
+	return tagged(prefix, demo) + " " + courseChip(name)
+}
+
+// maxSubWidth is the longest folder path shown beside a file name.
+const maxSubWidth = 36
+
+// shortenPath keeps the first and the last folder of a long path and elides the
+// middle ("Unidad 1/…/Resueltos"), so nested folders stay readable on one row.
+func shortenPath(p string, width int) string {
+	p = strings.Trim(p, `/\ `)
+	if ansi.StringWidth(p) <= width {
+		return p
+	}
+	segs := strings.FieldsFunc(p, func(r rune) bool { return r == '/' || r == '\\' })
+	if len(segs) < 2 {
+		return fitRow(p, width)
+	}
+	short := segs[0] + "/…/" + segs[len(segs)-1]
+	return fitRow(short, width)
 }

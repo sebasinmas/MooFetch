@@ -47,6 +47,9 @@ type APISection struct {
 	Number int // position in the course, starting at 0
 	Name   string
 	Files  []APIFile
+	// OtherModules counts visible activities of a type MooFetch does not
+	// download (pages, assignments...) that do carry files.
+	OtherModules int
 }
 
 // APIFile is one downloadable file of a section.

@@ -1,0 +1,94 @@
+[
+  {
+    "id": 6001,
+    "name": "Unidad 2: Carpetas anidadas y nombres largos de prueba para Windows",
+    "section": 1,
+    "uservisible": true,
+    "modules": [
+      {
+        "id": 1,
+        "name": "Material de clase",
+        "modname": "folder",
+        "uservisible": true,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "Resumen.pdf",
+            "filepath": "/Unidad 1/",
+            "filesize": 1000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/99001/mod_folder/content/0/Unidad%201/Resumen.pdf",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100
+          },
+          {
+            "type": "file",
+            "filename": "Resumen.pdf",
+            "filepath": "/Unidad 2/",
+            "filesize": 1000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/99001/mod_folder/content/0/Unidad%202/Resumen.pdf",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100
+          },
+          {
+            "type": "file",
+            "filename": "Guía final.pdf",
+            "filepath": "/Unidad 2/Laboratorios/Semana 3/Entrega/",
+            "filesize": 2500000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/99001/mod_folder/content/0/Unidad%202/Laboratorios/Semana%203/Entrega/Gu%C3%ADa%20final.pdf",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100
+          },
+          {
+            "type": "file",
+            "filename": "Raíz.pdf",
+            "filepath": "/",
+            "filesize": 1000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/99001/mod_folder/content/0/Ra%C3%ADz.pdf",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Página con imagen",
+        "modname": "page",
+        "uservisible": true,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "index.html",
+            "filepath": "/",
+            "filesize": 1000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/99002/mod_page/content/index.html",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "name": "Entrega 1",
+        "modname": "assign",
+        "uservisible": true
+      },
+      {
+        "id": 4,
+        "name": "Carpeta oculta",
+        "modname": "folder",
+        "uservisible": false,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "Oculto.pdf",
+            "filepath": "/",
+            "filesize": 1000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/99003/mod_folder/content/0/Oculto.pdf",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100
+          }
+        ]
+      }
+    ]
+  }
+]

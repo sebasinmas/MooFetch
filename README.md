@@ -181,6 +181,23 @@ Revisa cada navegador y perfil instalados y muestra una tabla con `Navegador | P
 </details>
 
 <details>
+<summary><b>La pantalla se ve rara en Windows (restos de texto al bajar con las flechas)</b></summary>
+
+Las consolas antiguas de Windows (cmd y el PowerShell clásico) a veces no borran bien lo que se redibuja. MooFetch ya usa por defecto una pantalla completa temporal y símbolos ASCII en esas consolas, y `moofetch doctor` te dice qué modo detectó. Si aún así ves restos, prueba estas variables (`1` = activar, `0` = desactivar):
+
+```powershell
+$env:MOOFETCH_ALTSCREEN = "1"   # dibuja cada pantalla desde la esquina superior izquierda
+$env:MOOFETCH_ASCII = "1"       # sin emoji; casillas [x] y [ ]
+moofetch
+```
+
+En **Windows Terminal** normalmente no hace falta nada. Si una combinación te arregla la pantalla, cuéntanos cuál en un issue.
+
+Además, en Windows las rutas largas (curso, sección y carpetas anidadas) se acortan solas para no superar el límite de 260 caracteres del sistema.
+
+</details>
+
+<details>
 <summary><b>Cookie a mano (10 segundos)</b></summary>
 
 1. Inicia sesión en tu campus con el navegador.

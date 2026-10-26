@@ -159,7 +159,7 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 	step1 := huh.NewGroup(
 		huh.NewInput().
 			Key("cookie").
-			Title(step1Title).
+			Title(brandText(step1Title)).
 			Description("Pega el token de tu cookie de sesión o el formato clave=valor:\n(ej., 65bmfu... o MoodleSession=65bmfu... - Guardado solo en memoria)").
 			Placeholder("65bmfuq58ghdd1pgdop4208pl2").
 			Value(&cookie).
@@ -169,7 +169,7 @@ func newInteractiveForm(demoMode bool, preCookie string) *FormController {
 	step2 := huh.NewGroup(
 		huh.NewText().
 			Key("urls").
-			Title(step2Title).
+			Title(brandText(step2Title)).
 			Description("Pega tus enlaces aquí (uno por línea, presiona Esc y luego Enter para enviar):").
 			Placeholder("https://campusvirtual.ufro.cl/mod/resource/view.php?id=123/Apunte%201.pdf\nhttps://campusvirtual.ufro.cl/mod/resource/view.php?id=124/Guia%202.pdf").
 			Value(&rawURLs).
@@ -220,9 +220,27 @@ var testInput func() io.Reader
 
 func programOptions() []tea.ProgramOption {
 	if testInput == nil {
+		return formProgramOptions()
+	}
+	return inlineProgramOptions()
+}
+
+// inlineProgramOptions are the options of programs whose last frame must stay on
+// screen (the download card): never the alternate screen.
+func inlineProgramOptions() []tea.ProgramOption {
+	if testInput == nil {
 		return nil
 	}
 	return []tea.ProgramOption{tea.WithInput(testInput()), tea.WithOutput(io.Discard)}
+}
+
+// formProgramOptions are the Bubble Tea options of the interactive forms: the
+// alternate screen where in-place redraws are unreliable (see renderMode).
+func formProgramOptions() []tea.ProgramOption {
+	if currentMode().AltScreen {
+		return []tea.ProgramOption{tea.WithAltScreen()}
+	}
+	return nil
 }
 
 // runHuh runs a huh form on its own (no splash), mapping a user abort to
@@ -230,6 +248,8 @@ func programOptions() []tea.ProgramOption {
 func runHuh(form *huh.Form) error {
 	if testInput != nil {
 		form = form.WithInput(testInput()).WithOutput(io.Discard)
+	} else if opts := formProgramOptions(); len(opts) > 0 {
+		form = form.WithProgramOptions(opts...)
 	}
 	if err := form.Run(); err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {

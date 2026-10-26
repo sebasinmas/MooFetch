@@ -78,8 +78,11 @@ func createTasks(form *tui.FormData, outputDir string) ([]domain.Task, error) {
 		return tasks, nil
 	}
 	tasks := make([]domain.Task, len(form.Items))
+	taken := map[string]int{} // folder + file name -> how many already use it
 	for i, it := range form.Items {
-		dir, err := safeOutputDir(outputDir, it.SubDir)
+		orig := fileNameOfURL(it.URL)
+		sub, name := fitPath(pathGOOS, outputDir, it.SubDir, orig)
+		dir, err := safeOutputDir(outputDir, sub)
 		if err != nil {
 			return nil, err
 		}
@@ -91,8 +94,29 @@ func createTasks(form *tui.FormData, outputDir string) ([]domain.Task, error) {
 			TokenHost: tokenHostFor(form),
 			OutputDir: dir,
 		}
+		// Only override the server's file name when it had to change.
+		if final := uniqueName(taken, dir, name); final != orig {
+			tasks[i].FileName = final
+		}
 	}
 	return tasks, nil
+}
+
+// uniqueName returns name, or "name (2)", "name (3)"... when another task of
+// the same folder already uses it, so two files never overwrite each other. An
+// empty name (unknown) is returned as is.
+func uniqueName(taken map[string]int, dir, name string) string {
+	if name == "" {
+		return ""
+	}
+	key := strings.ToLower(filepath.Join(dir, name))
+	taken[key]++
+	n := taken[key]
+	if n == 1 {
+		return name
+	}
+	ext := filepath.Ext(name)
+	return fmt.Sprintf("%s (%d)%s", strings.TrimSuffix(name, ext), n, ext)
 }
 
 // tokenHostFor is the only host a web-service token may be sent to: the campus
