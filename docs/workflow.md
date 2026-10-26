@@ -103,7 +103,8 @@ bash scripts/build-windows-test.sh     # genera dist-test/ (ignorada por git)
    Get-ChildItem -Recurse -Filter *.test.exe | ForEach-Object { Push-Location $_.DirectoryName; & $_.FullName -test.v; Pop-Location }
    ```
 
-3. **Qué reportar:** la tabla completa de `doctor` (no muestra valores de cookies, es seguro pegarla), los nombres de los tests que fallen (`--- FAIL: ...`) con su paquete y mensaje, y la versión de Windows y navegadores (si estaban abiertos). Nunca pegues cookies ni tokens.
+3. **Pantallas (TR-040):** ejecuta `.\moofetch.exe` (login por API) en **cmd**, **PowerShell** y **Windows Terminal**; sube y baja con las flechas por las listas de cursos, secciones y archivos y comprueba que no queden restos de texto. Repite con `$env:MOOFETCH_ALTSCREEN="0"` y `$env:MOOFETCH_ASCII="1"` para saber qué combinación lo arregla (la línea `Terminal:` de `doctor` dice el modo detectado). Con un curso de carpetas anidadas y nombres largos (TR-041) comprueba que todo se descargue.
+4. **Qué reportar:** la tabla completa de `doctor` (no muestra valores de cookies, es seguro pegarla), los nombres de los tests que fallen (`--- FAIL: ...`) con su paquete y mensaje, y la versión de Windows y navegadores (si estaban abiertos). Nunca pegues cookies ni tokens.
 
 **Regla:** **no se crea ningún tag de versión sin esta verificación manual en Windows** (trazabilidad TR-035). Si algo falla, se corrige y se repite la prueba con un `dist-test/` regenerado antes de taguear.
 

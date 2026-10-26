@@ -57,6 +57,7 @@ const demoConsentText = "MODO DEMO: no se lee ningún navegador ni se hace ningu
 const demoTag = " [MODO DEMO]"
 
 func tagged(title string, demo bool) string {
+	title = brandText(title)
 	if demo {
 		return title + demoTag
 	}

@@ -129,7 +129,7 @@ func (a *apiAdapter) Contents(ctx context.Context, campus, token string, courseI
 			}
 			files[j] = tui.FileItem{Name: name, URL: f.URL, SubDir: f.SubDir, Size: f.Size}
 		}
-		out[i] = tui.Section{ID: s.ID, Number: s.Number, Name: s.Name, Files: files}
+		out[i] = tui.Section{ID: s.ID, Number: s.Number, Name: s.Name, Files: files, OtherModules: s.OtherModules}
 	}
 	return out, nil
 }

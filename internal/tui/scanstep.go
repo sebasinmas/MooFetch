@@ -101,7 +101,7 @@ func askCookie() (string, error) {
 	var cookie string
 	form := newForm(huh.NewGroup(
 		huh.NewInput().
-			Title("🐄 MooFetch • Cookie de sesión").
+			Title(tagged("🐄 MooFetch • Cookie de sesión", false)).
 			Description("Pega tu cookie (ej. MoodleSession=65bmfu...). Solo se guarda en memoria.").
 			Placeholder("65bmfuq58ghdd1pgdop4208pl2").
 			Value(&cookie).
@@ -185,7 +185,7 @@ func askRetryOrManual() (manual bool, err error) {
 // selectResources shows the resource names (never the links) with everything
 // selected; the user unticks what they do not want.
 func selectResources(found []Resource, demo bool) ([]string, error) {
-	labels := resourceLabels(found)
+	labels := fitRows(resourceLabels(found))
 	options := make([]huh.Option[string], len(found))
 	for i, r := range found {
 		options[i] = huh.NewOption(labels[i], r.URL).Selected(true)

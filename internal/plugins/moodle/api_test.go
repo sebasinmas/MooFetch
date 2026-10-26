@@ -895,3 +895,53 @@ func TestDebugLogsContainNoSecrets(t *testing.T) {
 		t.Error("log leaks the username")
 	}
 }
+
+func TestContents_NestedFoldersKeepTheirTree(t *testing.T) {
+	var srvRef *httptest.Server
+	c, _, _, srv := newCampus(t, func(w http.ResponseWriter, _ *http.Request, _ url.Values) {
+		writeJSON(w, string(fixture(t, "contents_nested.json", srvRef)))
+	})
+	srvRef = srv
+	secs, err := c.Contents(context.Background(), testToken, 4001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(secs) != 1 {
+		t.Fatalf("sections = %+v", secs)
+	}
+	got := map[string]string{}
+	for _, f := range secs[0].Files {
+		got[f.SubDir+"|"+f.FileName] = f.Module
+	}
+	want := []string{
+		"Material de clase/Unidad 1|Resumen.pdf",
+		"Material de clase/Unidad 2|Resumen.pdf",
+		"Material de clase/Unidad 2/Laboratorios/Semana 3/Entrega|Guía final.pdf",
+		"Material de clase|Raíz.pdf",
+	}
+	if len(secs[0].Files) != len(want) {
+		t.Fatalf("files = %+v (page, assign and hidden modules must not add files)", secs[0].Files)
+	}
+	for _, k := range want {
+		if got[k] != "folder" {
+			t.Errorf("missing %q in %v", k, got)
+		}
+	}
+}
+
+func TestContents_CountsActivitiesWithFilesWeDoNotDownload(t *testing.T) {
+	var srvRef *httptest.Server
+	c, _, _, srv := newCampus(t, func(w http.ResponseWriter, _ *http.Request, _ url.Values) {
+		writeJSON(w, string(fixture(t, "contents_nested.json", srvRef)))
+	})
+	srvRef = srv
+	secs, err := c.Contents(context.Background(), testToken, 4001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only the visible "page" with a file counts: assign has no files and the
+	// hidden folder is not shown to the user at all.
+	if secs[0].OtherModules != 1 {
+		t.Errorf("OtherModules = %d, want 1", secs[0].OtherModules)
+	}
+}

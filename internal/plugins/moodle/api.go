@@ -450,6 +450,9 @@ func (a *APIClient) Contents(ctx context.Context, token string, courseID int) ([
 	for _, s := range raw {
 		sec := APISection{ID: s.ID, Number: s.Section, Name: strings.TrimSpace(s.Name), Files: []APIFile{}}
 		for _, m := range s.Modules {
+			if hasOtherModuleFiles(m) {
+				sec.OtherModules++
+			}
 			files, n := a.moduleFiles(m)
 			sec.Files = append(sec.Files, files...)
 			skipped += n
@@ -460,6 +463,20 @@ func (a *APIClient) Contents(ctx context.Context, token string, courseID int) ([
 		a.debug("moodle api: files skipped (foreign host or invalid URL)", "count", skipped)
 	}
 	return sections, nil
+}
+
+// hasOtherModuleFiles reports whether m is a visible activity that MooFetch
+// does not download but that holds files (so the user can be told).
+func hasOtherModuleFiles(m contentsModule) bool {
+	if m.ModName == "resource" || m.ModName == "folder" || (m.UserVisible != nil && !*m.UserVisible) {
+		return false
+	}
+	for _, c := range m.Contents {
+		if c.Type == "file" {
+			return true
+		}
+	}
+	return false
 }
 
 // moduleFiles converts the files of a resource or folder module. The second

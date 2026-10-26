@@ -819,3 +819,18 @@ func TestBuildAuthGroups_MethodScreenOnlyWithLogin(t *testing.T) {
 		t.Errorf("with Login and no preset domain: 4 groups, got %d", len(g))
 	}
 }
+
+func TestPickFromCourse_WarnsAboutActivitiesWithFiles(t *testing.T) {
+	var notice strings.Builder
+	got, err := pickFromCourse(Course{ID: 1, Name: "Cálculo"}, []Section{
+		{Number: 1, OtherModules: 2},
+		{Number: 2, OtherModules: 1},
+	}, &notice, false)
+	if err != nil || got != nil {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	out := notice.String()
+	if !strings.Contains(out, "3 actividades") || !strings.Contains(out, "no tiene archivos descargables") {
+		t.Errorf("notice = %q", out)
+	}
+}
