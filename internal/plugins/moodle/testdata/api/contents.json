@@ -1,0 +1,309 @@
+[
+  {
+    "id": 5001,
+    "name": "General",
+    "visible": 1,
+    "summary": "",
+    "summaryformat": 1,
+    "section": 0,
+    "hiddenbynumsections": 0,
+    "uservisible": true,
+    "modules": [
+      {
+        "id": 71001,
+        "url": "{{HOST}}/mod/forum/view.php?id=71001",
+        "name": "Foro de novedades",
+        "instance": 1,
+        "visible": 1,
+        "uservisible": true,
+        "visibleoncoursepage": 1,
+        "modicon": "{{HOST}}/theme/image.php/boost/forum/1566/icon",
+        "modname": "forum",
+        "modplural": "Foros",
+        "indent": 0,
+        "onclick": ""
+      },
+      {
+        "id": 71002,
+        "url": "",
+        "name": "Bienvenidos al curso",
+        "instance": 1,
+        "visible": 1,
+        "uservisible": true,
+        "modname": "label",
+        "modplural": "Etiquetas",
+        "indent": 0
+      }
+    ]
+  },
+  {
+    "id": 5002,
+    "name": "Unidad 1: Introducción",
+    "visible": 1,
+    "summary": "<p>Primera unidad</p>",
+    "summaryformat": 1,
+    "section": 1,
+    "hiddenbynumsections": 0,
+    "uservisible": true,
+    "modules": [
+      {
+        "id": 71010,
+        "url": "{{HOST}}/mod/resource/view.php?id=71010",
+        "name": "Guía de estudio 1",
+        "instance": 11,
+        "visible": 1,
+        "uservisible": true,
+        "visibleoncoursepage": 1,
+        "modicon": "{{HOST}}/theme/image.php/boost/core/1566/f/pdf-24",
+        "modname": "resource",
+        "modplural": "Archivos",
+        "indent": 0,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "Guia 1.pdf",
+            "filepath": "/",
+            "filesize": 245760,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/88001/mod_resource/content/1/Guia%201.pdf?forcedownload=1",
+            "timecreated": 1551370000,
+            "timemodified": 1551380000,
+            "sortorder": 1,
+            "userid": 3001,
+            "author": "Profesor Ejemplo",
+            "license": "allrightsreserved"
+          }
+        ]
+      },
+      {
+        "id": 71011,
+        "url": "{{HOST}}/mod/resource/view.php?id=71011",
+        "name": "Diapositivas semana 1",
+        "instance": 12,
+        "visible": 1,
+        "uservisible": true,
+        "modname": "resource",
+        "modplural": "Archivos",
+        "indent": 0,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "Clase1.pptx",
+            "filepath": "/",
+            "filesize": 1048576,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/88002/mod_resource/content/2/Clase1.pptx?token=LEAKEDTOKENINFILEURL&forcedownload=1",
+            "timecreated": 1551370000,
+            "timemodified": 1551390000,
+            "sortorder": 1,
+            "userid": 3001,
+            "author": "Profesor Ejemplo",
+            "license": "allrightsreserved"
+          }
+        ]
+      },
+      {
+        "id": 71012,
+        "url": "{{HOST}}/mod/url/view.php?id=71012",
+        "name": "Lectura complementaria (enlace)",
+        "instance": 3,
+        "visible": 1,
+        "uservisible": true,
+        "modname": "url",
+        "modplural": "URLs",
+        "indent": 1,
+        "contents": [
+          {
+            "type": "url",
+            "filename": "Lectura",
+            "filepath": null,
+            "filesize": 0,
+            "fileurl": "https://example.org/lectura",
+            "timecreated": 1551370000,
+            "timemodified": 1551370000,
+            "sortorder": 0,
+            "userid": null,
+            "author": null,
+            "license": null
+          }
+        ]
+      },
+      {
+        "id": 71013,
+        "url": "{{HOST}}/mod/page/view.php?id=71013",
+        "name": "Resumen de la unidad",
+        "instance": 5,
+        "visible": 1,
+        "uservisible": true,
+        "modname": "page",
+        "modplural": "Páginas",
+        "indent": 0,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "index.html",
+            "filepath": "/",
+            "filesize": 2048,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/88003/mod_page/content/index.html",
+            "timecreated": 1551370000,
+            "timemodified": 1551370000,
+            "sortorder": 0,
+            "userid": null,
+            "author": null,
+            "license": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 5003,
+    "name": "Unidad 2: Material de apoyo",
+    "visible": 1,
+    "summary": "",
+    "summaryformat": 1,
+    "section": 2,
+    "hiddenbynumsections": 0,
+    "uservisible": true,
+    "modules": [
+      {
+        "id": 71020,
+        "url": "{{HOST}}/mod/folder/view.php?id=71020",
+        "name": "Material de clase",
+        "instance": 21,
+        "visible": 1,
+        "uservisible": true,
+        "modname": "folder",
+        "modplural": "Carpetas",
+        "indent": 0,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "Programa.pdf",
+            "filepath": "/",
+            "filesize": 100000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/88010/mod_folder/content/0/Programa.pdf?forcedownload=1",
+            "timecreated": 1552000000,
+            "timemodified": 1552000100,
+            "sortorder": 1,
+            "userid": 3001,
+            "author": "Profesor Ejemplo",
+            "license": "allrightsreserved"
+          },
+          {
+            "type": "file",
+            "filename": "Ejercicios.pdf",
+            "filepath": "/Guías/Parte 1/",
+            "filesize": 200000,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/88010/mod_folder/content/0/Gu%C3%ADas/Parte%201/Ejercicios.pdf?forcedownload=1",
+            "timecreated": 1552000000,
+            "timemodified": 1552000200,
+            "sortorder": 2,
+            "userid": 3001,
+            "author": "Profesor Ejemplo",
+            "license": "allrightsreserved"
+          },
+          {
+            "type": "file",
+            "filename": "Evil.pdf",
+            "filepath": "/../../etc/",
+            "filesize": 10,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/88010/mod_folder/content/0/Evil.pdf",
+            "timecreated": 1552000000,
+            "timemodified": 0,
+            "sortorder": 3,
+            "userid": 3001,
+            "author": null,
+            "license": null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 5004,
+    "name": "",
+    "visible": 0,
+    "summary": "",
+    "summaryformat": 1,
+    "section": 3,
+    "hiddenbynumsections": 0,
+    "uservisible": false,
+    "modules": []
+  },
+  {
+    "id": 5005,
+    "name": "Unidad 4: Enlaces hostiles",
+    "visible": 1,
+    "summary": "",
+    "summaryformat": 1,
+    "section": 4,
+    "hiddenbynumsections": 0,
+    "uservisible": true,
+    "modules": [
+      {
+        "id": 71040,
+        "url": "{{HOST}}/mod/resource/view.php?id=71040",
+        "name": "Archivo en otro servidor",
+        "instance": 40,
+        "visible": 1,
+        "uservisible": true,
+        "modname": "resource",
+        "modplural": "Archivos",
+        "indent": 0,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "robado.pdf",
+            "filepath": "/",
+            "filesize": 1,
+            "fileurl": "https://evil.example.net/webservice/pluginfile.php/1/mod_resource/content/1/robado.pdf",
+            "timecreated": 1551370000,
+            "timemodified": 1551370000,
+            "sortorder": 1,
+            "userid": 1,
+            "author": null,
+            "license": null
+          },
+          {
+            "type": "file",
+            "filename": "http.pdf",
+            "filepath": "/",
+            "filesize": 1,
+            "fileurl": "http://{{HOSTNAME}}/webservice/pluginfile.php/1/mod_resource/content/1/http.pdf",
+            "timecreated": 1551370000,
+            "timemodified": 1551370000,
+            "sortorder": 2,
+            "userid": 1,
+            "author": null,
+            "license": null
+          }
+        ]
+      },
+      {
+        "id": 71041,
+        "url": "{{HOST}}/mod/resource/view.php?id=71041",
+        "name": "Oculto para el alumno",
+        "instance": 41,
+        "visible": 0,
+        "uservisible": false,
+        "modname": "resource",
+        "modplural": "Archivos",
+        "indent": 0,
+        "contents": [
+          {
+            "type": "file",
+            "filename": "oculto.pdf",
+            "filepath": "/",
+            "filesize": 1,
+            "fileurl": "{{HOST}}/webservice/pluginfile.php/2/mod_resource/content/1/oculto.pdf",
+            "timecreated": 1551370000,
+            "timemodified": 1551370000,
+            "sortorder": 1,
+            "userid": 1,
+            "author": null,
+            "license": null
+          }
+        ]
+      }
+    ]
+  }
+]

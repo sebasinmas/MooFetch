@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/sebasinmas/MooFetch/internal/domain"
@@ -59,17 +61,58 @@ func setupLogger(logPath string, concurrency int, outputDir string, form *tui.Fo
 	return l, logPath
 }
 
-func createTasks(form *tui.FormData, outputDir string) []domain.Task {
-	tasks := make([]domain.Task, len(form.URLs))
-	for i, u := range form.URLs {
+// createTasks builds one task per file. On the API route (form.Items) each
+// task carries the token in Task.Token, never in the URL, and is saved in its
+// own sub-folder; the sub-folder is checked to stay inside outputDir.
+func createTasks(form *tui.FormData, outputDir string) ([]domain.Task, error) {
+	if len(form.Items) == 0 {
+		tasks := make([]domain.Task, len(form.URLs))
+		for i, u := range form.URLs {
+			tasks[i] = domain.Task{
+				ID:        i + 1,
+				URL:       u,
+				Cookie:    form.Cookie,
+				OutputDir: outputDir,
+			}
+		}
+		return tasks, nil
+	}
+	tasks := make([]domain.Task, len(form.Items))
+	for i, it := range form.Items {
+		dir, err := safeOutputDir(outputDir, it.SubDir)
+		if err != nil {
+			return nil, err
+		}
 		tasks[i] = domain.Task{
 			ID:        i + 1,
-			URL:       u,
+			URL:       it.URL,
 			Cookie:    form.Cookie,
-			OutputDir: outputDir,
+			Token:     form.Token,
+			TokenHost: tokenHostFor(form),
+			OutputDir: dir,
 		}
 	}
-	return tasks
+	return tasks, nil
+}
+
+// tokenHostFor is the only host a web-service token may be sent to: the campus
+// the user logged in to. Without a token there is nothing to pin.
+func tokenHostFor(form *tui.FormData) string {
+	if form.Token == "" {
+		return ""
+	}
+	return strings.ToLower(form.Campus)
+}
+
+// safeOutputDir joins outputDir and subDir, refusing any result that is not
+// inside outputDir (defense in depth: the wizard already sanitizes names).
+func safeOutputDir(outputDir, subDir string) (string, error) {
+	dir := filepath.Join(outputDir, filepath.FromSlash(subDir))
+	rel, err := filepath.Rel(outputDir, dir)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("la subcarpeta %q queda fuera de la carpeta de salida", subDir)
+	}
+	return dir, nil
 }
 
 func initKernel(concurrency int, l *logger.Logger, isDemo bool) *kernel.Kernel {

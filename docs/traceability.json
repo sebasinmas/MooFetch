@@ -68,7 +68,7 @@
   {
     "id": "TR-007",
     "titulo": "Verificación manual de autodetección en Chrome",
-    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Google Chrome (Linux/Windows/macOS). Sin verificación manual hasta ahora.",
+    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Google Chrome (Linux/Windows/macOS). Hallazgo del 2026-10-25: en Windows no se detectó con Chrome abierto (error «archivo en uso»); además Chrome 127+ cifra las cookies con «app-bound encryption» (v20), que kooky no puede descifrar. Ver TR-029, TR-031 y TR-035.",
     "fecha": null,
     "estado": "por implementar",
     "rama": null,
@@ -79,7 +79,7 @@
   {
     "id": "TR-008",
     "titulo": "Verificación manual de autodetección en Edge",
-    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Microsoft Edge. Sin verificación manual hasta ahora.",
+    "descripcion": "Probar con una sesión real del campus que la cookie se detecta en Microsoft Edge. Hallazgo del 2026-10-25: en Windows no se detectó con Edge abierto (error «archivo en uso»). El diagnóstico de TR-029 confirmará si Edge también usa cifrado v20. Ver TR-031 y TR-035.",
     "fecha": null,
     "estado": "por implementar",
     "rama": null,
@@ -167,7 +167,7 @@
   {
     "id": "TR-016",
     "titulo": "Extensión de navegador",
-    "descripcion": "Extensión (WebExtensions / Chrome MV3) que capture enlaces y sesión y los envíe a un daemon (cmd/moofetch-daemon) por stdin JSON o WebSocket, reutilizando kernel y dominio.",
+    "descripcion": "Extensión (WebExtensions / Chrome MV3) que capture enlaces y sesión y los envíe a un daemon (cmd/moofetch-daemon) por stdin JSON o WebSocket, reutilizando kernel y dominio. Nota 2026-10-25: pierde urgencia si la autenticación por API móvil de Moodle (TR-036 a TR-038) funciona en el campus, porque elimina la lectura de cookies del navegador.",
     "fecha": null,
     "estado": "por implementar",
     "rama": null,
@@ -306,5 +306,150 @@
     "commit": "56627c8",
     "version": null,
     "evidencia": [".gitignore", "docs/tasks/TASK-06-coverage-80.md"]
+  },
+  {
+      "id": "TR-029",
+      "titulo": "Diagnóstico por navegador y comando moofetch doctor",
+      "descripcion": "MooFetch ahora informa, por cada navegador y perfil, qué pasó al buscar la cookie (encontrada, sin cookie, bloqueado, cifrado, ilegible o ausente) y con qué estrategia de lectura, en vez de mostrar solo el primer error. Incluye el comando moofetch doctor (sin datos sensibles) y timeout por navegador para que uno colgado no bloquee a los demás. Contrato en internal/auth/report.go.",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "fix/windows-support",
+      "commit": "bbb2a8b",
+      "version": null,
+      "evidencia": [    "internal/auth/report.go",
+          "internal/auth/kooky.go",
+          "cmd/moofetch/doctor.go", "internal/auth/store.go"
+      ]
+  },
+  {
+      "id": "TR-030",
+      "titulo": "Firefox robusto en Windows: archivos en uso, reintentos y copiar-leer-eliminar",
+      "descripcion": "Lectura de la copia de sesión y de cookies.sqlite de Firefox con acceso compartido (FILE_SHARE_DELETE), reintentos cortos y, como respaldo, copiar a una carpeta temporal privada, leer y eliminar. Los errores de Firefox ya no se silencian. Se verifica en el PC con Windows del dueño (TR-035).",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "fix/windows-support",
+      "commit": "bbb2a8b",
+      "version": null,
+      "evidencia": [    "internal/auth/firefox.go",
+          "internal/auth/open_windows.go",
+          "internal/auth/open_other.go"
+      ]
+  },
+  {
+      "id": "TR-031",
+      "titulo": "Chrome y Edge en Windows: cookies cifradas (v20), mensaje claro y decisión de ruta",
+      "descripcion": "kooky no puede descifrar las cookies v20 de Chrome 127+ en Windows. MooFetch lo detecta, lo explica en una línea (usa Firefox o pega la cookie) y deja el detalle técnico en moofetch doctor (sin valores de cookies). La solución de fondo es la autenticación por API móvil (TR-037).",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "fix/windows-support",
+      "commit": "bbb2a8b",
+      "version": null,
+      "evidencia": [    "internal/auth/kooky.go",
+          "internal/tui/authstep.go"
+      ]
+  },
+  {
+      "id": "TR-032",
+      "titulo": "Releases solo amd64 y Mac universal, con archivos MooFetch-Windows, MooFetch-Linux y MooFetch-Mac",
+      "descripcion": "GoReleaser compila linux/amd64, windows/amd64 y un binario universal para Mac (amd64+arm64) y publica tres archivos con nombre fijo (MooFetch-Windows.zip, MooFetch-Linux.tar.gz, MooFetch-Mac.zip) más checksums.txt, con enlace estable releases/latest/download/. El README se simplifica sin la tabla amd64/arm64.",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "fix/windows-support",
+      "commit": "5fe47b3",
+      "version": null,
+      "evidencia": [    ".goreleaser.yaml",
+          "README.md",
+          "docs/workflow.md"
+      ]
+  },
+  {
+      "id": "TR-033",
+      "titulo": "Verificación en Windows sin CI: script de compilación cruzada y guía previa a cada tag",
+      "descripcion": "Sin jobs de Windows/macOS en CI (decisión del dueño por los límites de Actions). scripts/build-windows-test.sh compila en Linux moofetch.exe y los tests de Windows (go test -c) para ejecutarlos en el PC del dueño; docs/workflow.md fija la regla de no taguear sin esa verificación.",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "fix/windows-support",
+      "commit": "2967581",
+      "version": null,
+      "evidencia": [    "scripts/build-windows-test.sh",
+          "docs/workflow.md",
+          ".github/workflows/ci.yml"
+      ]
+  },
+  {
+      "id": "TR-034",
+      "titulo": "Nombres de archivo seguros en Windows",
+      "descripcion": "sanitizeFilename maneja nombres reservados de Windows (CON, NUL, COM1...), puntos y espacios finales, caracteres de control y nombres demasiado largos, además de la protección contra path traversal que ya tenía.",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "fix/windows-support",
+      "commit": "6133d21",
+      "version": null,
+      "evidencia": [    "internal/plugins/moodle/moodle.go"
+      ]
+  },
+  {
+      "id": "TR-035",
+      "titulo": "Verificación manual en Windows con varios navegadores",
+      "descripcion": "Compuerta humana antes de cada tag: el dueño ejecuta en su PC con Windows (Chrome, Edge, Opera, Brave y Firefox abiertos, con sesión en el campus) moofetch.exe doctor y los tests compilados, y reporta el resultado. Éxito: Firefox detecta la cookie con el navegador abierto, o doctor explica qué pasa en cada uno.",
+      "fecha": null,
+      "estado": "por implementar",
+      "rama": null,
+      "commit": null,
+      "version": null,
+      "evidencia": [    "docs/workflow.md"
+      ]
+  },
+  {
+      "id": "TR-036",
+      "titulo": "Spike de la API móvil de Moodle (compuerta humana)",
+      "descripcion": "Verificado por el dueño el 2026-10-25 en campusvirtual.ufro.cl (Moodle 3.5.4+, build 2019): login/token.php entrega token con usuario y contraseña (login directo, sin SSO), core_webservice_get_site_info responde, core_enrol_get_users_courses y core_course_get_contents están disponibles (10 cursos; el primero con 5 secciones, 41 módulos y 8 archivos). Resultado en docs/tasks/TASK-10-spike-api-movil.md y diseño en docs/adr/006-autenticacion-api-movil.md.",
+      "fecha": "2026-10-25",
+      "estado": "implementado",
+      "rama": "develop",
+      "commit": null,
+      "version": null,
+      "evidencia": [    "docs/tasks/TASK-10-spike-api-movil.md"
+      ]
+  },
+  {
+      "id": "TR-037",
+      "titulo": "Autenticación por API móvil: usuario y contraseña a token en memoria",
+      "descripcion": "Entrada por defecto del asistente si el spike lo permite: usuario y contraseña (enmascarada) se cambian por un token vía login/token.php; la contraseña se descarta de inmediato y el token vive solo en memoria. La cookie del navegador queda como alternativa (--auth api|cookie).",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "feat/mobile-api",
+      "commit": "82dce39",
+      "version": null,
+      "evidencia": [    "internal/plugins/moodle/api.go",
+          "internal/tui",
+          "cmd/moofetch"
+      ]
+  },
+  {
+      "id": "TR-038",
+      "titulo": "Navegar cursos, secciones y archivos vía API móvil",
+      "descripcion": "El asistente lista los cursos del alumno (core_enrol_get_users_courses) y deja elegir curso, sección y archivos por nombre (core_course_get_contents), todo marcado por defecto. Los archivos se guardan como curso/sección/archivo. Base para sync por fecha de modificación.",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "feat/mobile-api",
+      "commit": "82dce39",
+      "version": null,
+      "evidencia": [    "internal/plugins/moodle/api.go",
+          "internal/tui"
+      ]
+  },
+  {
+      "id": "TR-039",
+      "titulo": "Redacción de tokens, contraseñas y cookies en logs y errores",
+      "descripcion": "El token viaja en la URL de descarga: se redacta en --log, en errores de net/http y en la interfaz; la contraseña nunca se muestra ni se registra. Tests que verifican que ningún log ni error los contiene.",
+      "fecha": "2026-10-25",
+      "estado": "en proceso",
+      "rama": "feat/mobile-api",
+      "commit": "5033295",
+      "version": null,
+      "evidencia": [    "internal/logger",
+          "internal/plugins/moodle"
+      ]
   }
 ]

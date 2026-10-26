@@ -34,9 +34,16 @@ func IsFatalAuth(err error) bool {
 
 // Task represents an individual download unit.
 type Task struct {
-	ID        int
-	URL       string
-	Cookie    string
+	ID     int
+	URL    string
+	Cookie string
+	// Token is a Moodle mobile web-service token. It is deliberately NOT part
+	// of URL: the plugin adds it to the request only, so URLs shown in the UI,
+	// events and logs never contain a secret.
+	Token string
+	// TokenHost is the campus host (host or host:port) the token may be sent
+	// to; empty means the token is never attached.
+	TokenHost string
 	OutputDir string
 }
 

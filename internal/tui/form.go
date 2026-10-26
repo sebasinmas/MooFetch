@@ -90,6 +90,15 @@ func CleanURLsDemo(raw string) []string {
 type FormData struct {
 	Cookie string
 	URLs   []string
+	// Token is the mobile-API token of the API route (empty otherwise; Cookie
+	// is then empty too). It is a secret: never print or log it.
+	Token string
+	// Items, when non-empty, lists what to download with its sub-folder (API
+	// route). URLs then holds the same URLs, without any secret.
+	Items []Download
+	// Campus is the host the Token belongs to. Downloads attach the token only
+	// to that host (see domain.Task.TokenHost).
+	Campus string
 }
 
 // FormController encapsulates the Huh form and allows retrieving the resulting FormData.

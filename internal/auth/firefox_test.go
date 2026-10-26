@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -87,40 +88,6 @@ func TestParseSessionCookies(t *testing.T) {
 	}
 }
 
-func TestFirefoxExtraCookies_FindsSessionCookie(t *testing.T) {
-	fakeFirefoxProfile(t, "recovery.jsonlz4", mozLz4(t, []byte(sessionJSON)))
-
-	// Use the real filter through the real seam, with only the Firefox source.
-	filter := kooky.FilterFunc(func(c *kooky.Cookie) bool {
-		return isSessionCookieName(c.Name) && domainMatches(c.Domain, "campusvirtual.ufro.cl")
-	})
-	var values []string
-	for c, err := range firefoxExtraCookies(context.Background(), filter) {
-		if err != nil {
-			t.Fatal(err)
-		}
-		values = append(values, c.Value)
-	}
-	if len(values) != 1 || values[0] != "abc123" {
-		t.Fatalf("got %v, want [abc123]", values)
-	}
-}
-
-func TestFirefoxExtraCookies_IgnoresBrokenFilesAndStopsOnCancel(t *testing.T) {
-	fakeFirefoxProfile(t, "recovery.jsonlz4", []byte("garbage"))
-	all := kooky.FilterFunc(func(*kooky.Cookie) bool { return true })
-	for c, err := range firefoxExtraCookies(context.Background(), all) {
-		t.Fatalf("unexpected cookie %v %v", c, err)
-	}
-
-	fakeFirefoxProfile(t, "recovery.jsonlz4", mozLz4(t, []byte(sessionJSON)))
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	for c := range firefoxExtraCookies(ctx, all) {
-		t.Fatalf("cancelled context must yield nothing, got %v", c)
-	}
-}
-
 func TestFirefoxProfileDirs_SkipsFoldersWithoutData(t *testing.T) {
 	root := t.TempDir()
 	for _, d := range []string{"empty", "withcookies", "Crash Reports"} {
@@ -172,3 +139,135 @@ func TestIgnorableStoreError(t *testing.T) {
 }
 
 func isLinuxLike() bool { return os.PathSeparator == '/' && runtime.GOOS != "darwin" }
+
+func allCookies() kooky.Filter { return kooky.FilterFunc(func(*kooky.Cookie) bool { return true }) }
+
+func TestFirefoxProfile_ReadsSessionBackup(t *testing.T) {
+	dir := fakeFirefoxProfile(t, "recovery.jsonlz4", mozLz4(t, []byte(sessionJSON)))
+	filter := sessionFilter("campusvirtual.ufro.cl")
+	cookies, strategy, err := firefoxProfile{dir: dir}.Read(context.Background(), filter)
+	if err != nil || strategy != StrategyShared || len(cookies) != 1 || cookies[0].Value != "abc123" {
+		t.Fatalf("cookies=%v strategy=%s err=%v", cookies, strategy, err)
+	}
+	p := firefoxProfile{dir: dir}
+	if p.Browser() != "firefox" || p.Profile() != "abc.default-release" || p.Close() != nil {
+		t.Fatalf("unexpected identity %s/%s", p.Browser(), p.Profile())
+	}
+}
+
+func firefoxStoresOf(t *testing.T) []storeReader {
+	t.Helper()
+	var stores []storeReader
+	if _, ok := yieldFirefoxProfiles(func(s storeReader, _ error) bool { stores = append(stores, s); return true }); !ok || len(stores) != 1 {
+		t.Fatalf("stores=%v", stores)
+	}
+	return stores
+}
+
+func TestFirefoxProfile_BrokenSessionBackupIsReportedNotSilent(t *testing.T) {
+	fakeFirefoxProfile(t, "recovery.jsonlz4", []byte("garbage"))
+	stubStores(t, storeItem{store: firefoxStoresOf(t)[0]})
+	reports := KookyProvider{}.Diagnose(context.Background(), "campusvirtual.ufro.cl")
+	if len(reports) != 1 || reports[0].Browser != "Firefox" || reports[0].Outcome != OutcomeUnreadable || reports[0].Err == nil {
+		t.Fatalf("a corrupt session backup must be reported: %+v", reports)
+	}
+}
+
+func TestFirefoxProfile_FoundThroughScan(t *testing.T) {
+	fakeFirefoxProfile(t, "recovery.jsonlz4", mozLz4(t, []byte(sessionJSON)))
+	stubStores(t, storeItem{store: firefoxStoresOf(t)[0]})
+	got, err := KookyProvider{}.Find(context.Background(), "campusvirtual.ufro.cl")
+	if err != nil || got != "MoodleSession=abc123" {
+		t.Fatalf("got %q %v", got, err)
+	}
+}
+
+func TestFirefoxProfile_LockedFilesUseCopyAndErrorsAreKept(t *testing.T) {
+	noSleep(t)
+	dir := fakeFirefoxProfile(t, "recovery.jsonlz4", mozLz4(t, []byte(sessionJSON)))
+	if err := os.WriteFile(filepath.Join(dir, "cookies.sqlite"), []byte("db"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	oldRead := readSQLite
+	readSQLite = func(string, kooky.Filter) ([]*kooky.Cookie, error) { return nil, errBusy }
+	t.Cleanup(func() { readSQLite = oldRead })
+	dirs := trackTempDirs(t)
+	// The sqlite copy attempt consumes one failing open, then the session backup fails its shared read and retries.
+	failOpener(t, lockRetries+2)
+
+	// cookies.sqlite stays locked (reader stub) but the session cookie is found
+	// through the temporary copy: the cookie wins and the strategy is the copy.
+	cookies, strategy, err := firefoxProfile{dir: dir}.Read(context.Background(), sessionFilter("campusvirtual.ufro.cl"))
+	if len(cookies) != 1 || strategy != StrategyCopy || err == nil || classifyError(err) != OutcomeLocked {
+		t.Fatalf("cookies=%v strategy=%s err=%v", cookies, strategy, err)
+	}
+	for _, d := range *dirs {
+		if _, err := os.Stat(d); !errors.Is(err, fs.ErrNotExist) {
+			t.Errorf("temporary folder %s left behind", d)
+		}
+	}
+}
+
+func TestFirefoxProfile_NothingFoundAndCancel(t *testing.T) {
+	dir := fakeFirefoxProfile(t, "recovery.jsonlz4", mozLz4(t, []byte(sessionJSON)))
+	none := kooky.FilterFunc(func(*kooky.Cookie) bool { return false })
+	cookies, _, err := firefoxProfile{dir: dir}.Read(context.Background(), none)
+	if err != nil || len(cookies) != 0 {
+		t.Fatalf("cookies=%v err=%v", cookies, err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, _, err := (firefoxProfile{dir: dir}).Read(ctx, allCookies()); !errors.Is(err, context.Canceled) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestReadSQLite_OnInvalidFile(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "cookies.sqlite")
+	if err := os.WriteFile(p, []byte("not a database"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if cs, err := readSQLite(p, allCookies()); err == nil || cs != nil {
+		t.Fatalf("an invalid database must be an error, got %v %v", cs, err)
+	}
+	if _, err := readSQLite(filepath.Join(t.TempDir(), "missing.sqlite"), allCookies()); err == nil {
+		t.Fatal("a missing database must be an error")
+	}
+}
+
+func TestProfileRead_Add(t *testing.T) {
+	p := profileRead{strategy: StrategyNone}
+	p.add(nil, StrategyNone, &fs.PathError{Op: "open", Path: "x", Err: fs.ErrNotExist})
+	if p.err != nil {
+		t.Fatalf("a missing file is not an error: %v", p.err)
+	}
+	p.add(nil, StrategyShared, nil)
+	p.add(nil, StrategyCopy, nil)
+	p.add(nil, StrategyShared, nil)
+	if p.strategy != StrategyCopy {
+		t.Fatalf("copy must be remembered, got %s", p.strategy)
+	}
+	first, second := errors.New("first"), errors.New("second")
+	p.add(nil, StrategyNone, first)
+	p.add(nil, StrategyNone, second)
+	if !errors.Is(p.err, first) {
+		t.Fatalf("keeps the first error, got %v", p.err)
+	}
+}
+
+func TestYieldFirefoxProfiles_StopsWhenConsumerStops(t *testing.T) {
+	root := t.TempDir()
+	for _, n := range []string{"a", "b"} {
+		if err := os.MkdirAll(filepath.Join(root, n, "sessionstore-backups"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := firefoxRoots
+	firefoxRoots = func() []string { return []string{root} }
+	t.Cleanup(func() { firefoxRoots = old })
+	n := 0
+	covered, ok := yieldFirefoxProfiles(func(storeReader, error) bool { n++; return false })
+	if ok || n != 1 || len(covered) != 1 {
+		t.Fatalf("ok=%v n=%d covered=%v", ok, n, covered)
+	}
+}

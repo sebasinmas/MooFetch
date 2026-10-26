@@ -158,6 +158,7 @@ graph TD
 - Centraliza toda la interacción con el usuario en terminal:
   - Formulario interactivo con `huh`.
   - Pantalla splash con la identidad MooFetch (vaca 🐄 en banner, formulario y tarjeta de progreso); se muestra primero, antes del paso de campus/consentimiento.
+  - **Entrada por la API móvil ([ADR 006](adr/006-autenticacion-api-movil.md)):** tras el campus, la pantalla «¿Cómo quieres entrar?» (usuario y contraseña, por defecto, o cookie del navegador) y, en la ruta de usuario y contraseña, credenciales (contraseña enmascarada) → spinner «Iniciando sesión…» → **cursos** (ninguno marcado, al menos uno) → por cada curso, **secciones** y **archivos** (todo marcado, solo nombres y tamaños, nunca URLs; `internal/tui/apistep.go`). El comportamiento llega por `AuthOptions.Login`/`Courses`/`Contents` y `cmd/moofetch/api.go` adapta `moodle.MobileAPI` a los tipos de `tui`, que no importa `moodle`. El resultado (`FormData.Token` + `FormData.Items`, cada una con su subcarpeta `curso/NN - sección/…` saneada por `safeDirName`) se convierte en `domain.Task` con el token en `Task.Token`, nunca en la URL. Credenciales inválidas, API no disponible o token vencido llevan a reintentar, a la cookie o al pegado manual.
   - Vista reactiva de progreso en tarjeta con Bubble Tea (`tea.Model`) y Lipgloss (soporte `NO_COLOR` y paletas adaptativas).
   - Ejecución en texto plano headless para tuberías Unix (`RunHeadlessProgress`).
 

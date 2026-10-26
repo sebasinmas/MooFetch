@@ -99,13 +99,13 @@ func execute(ctx context.Context, form *tui.FormData) error {
 		defer func() { _ = appLogger.Close() }()
 	}
 
-	tasks := createTasks(form, flagOutputDir)
+	tasks, err := createTasks(form, flagOutputDir)
+	if err != nil {
+		return err
+	}
 	k := initKernel(flagConcurrency, appLogger, flagDemo)
 
-	var (
-		results []domain.Result
-		err     error
-	)
+	var results []domain.Result
 	if shouldUseHeadless() {
 		results, err = tui.RunHeadlessProgress(ctx, k, tasks, os.Stderr)
 	} else {

@@ -33,7 +33,10 @@ Custom_Apunte.pdf
 	}
 
 	// 2. Create tasks
-	tasks := createTasks(form, tempDir)
+	tasks, err := createTasks(form, tempDir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(tasks) != 4 {
 		t.Fatalf("expected 4 tasks, got %d", len(tasks))
 	}
