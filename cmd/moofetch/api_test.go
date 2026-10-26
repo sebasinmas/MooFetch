@@ -265,8 +265,9 @@ func TestAuthFlag_AppearsInHelp(t *testing.T) {
 func TestCreateTasks_APIItems(t *testing.T) {
 	out := t.TempDir()
 	form := &tui.FormData{
-		Token: testToken,
-		URLs:  []string{"https://c.cl/webservice/pluginfile.php/1/a.pdf", "https://c.cl/webservice/pluginfile.php/2/b.pdf"},
+		Token:  testToken,
+		Campus: "C.cl",
+		URLs:   []string{"https://c.cl/webservice/pluginfile.php/1/a.pdf", "https://c.cl/webservice/pluginfile.php/2/b.pdf"},
 		Items: []tui.Download{
 			{URL: "https://c.cl/webservice/pluginfile.php/1/a.pdf", SubDir: "Cálculo II/01 - Límites/"},
 			{URL: "https://c.cl/webservice/pluginfile.php/2/b.pdf", SubDir: "Cálculo II/01 - Límites/Guías/"},
@@ -280,7 +281,7 @@ func TestCreateTasks_APIItems(t *testing.T) {
 		t.Fatalf("tasks = %+v", tasks)
 	}
 	for i, task := range tasks {
-		if task.ID != i+1 || task.Token != testToken || task.Cookie != "" || task.URL != form.Items[i].URL {
+		if task.ID != i+1 || task.Token != testToken || task.TokenHost != "c.cl" || task.Cookie != "" || task.URL != form.Items[i].URL {
 			t.Errorf("task %d = %+v", i, task)
 		}
 		if strings.Contains(task.URL, testToken) {

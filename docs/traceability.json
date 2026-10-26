@@ -419,7 +419,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "feat/mobile-api",
-      "commit": null,
+      "commit": "82dce39",
       "version": null,
       "evidencia": [    "internal/plugins/moodle/api.go",
           "internal/tui",
@@ -433,7 +433,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "feat/mobile-api",
-      "commit": null,
+      "commit": "82dce39",
       "version": null,
       "evidencia": [    "internal/plugins/moodle/api.go",
           "internal/tui"
@@ -446,7 +446,7 @@
       "fecha": "2026-10-25",
       "estado": "en proceso",
       "rama": "feat/mobile-api",
-      "commit": null,
+      "commit": "5033295",
       "version": null,
       "evidencia": [    "internal/logger",
           "internal/plugins/moodle"

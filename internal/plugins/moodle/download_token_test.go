@@ -56,6 +56,8 @@ func TestTokenRequestURL(t *testing.T) {
 		{"replaces old token", "https://c.example.cl/webservice/pluginfile.php/1/a.pdf?token=OLD&x=1&wstoken=OLD2", "https://c.example.cl/webservice/pluginfile.php/1/a.pdf?x=1&token=TKN"},
 		{"drops fragment", "https://c.example.cl/webservice/pluginfile.php/1/a.pdf#f", "https://c.example.cl/webservice/pluginfile.php/1/a.pdf?token=TKN"},
 		{"prefix path", "https://c.example.cl/moodle/webservice/pluginfile.php/1/a.pdf", "https://c.example.cl/moodle/webservice/pluginfile.php/1/a.pdf?token=TKN"},
+		{"other host", "https://evil.example.com/webservice/pluginfile.php/1/a.pdf", ""},
+		{"subdomain of campus", "https://x.c.example.cl/webservice/pluginfile.php/1/a.pdf", ""},
 		{"http", "http://c.example.cl/webservice/pluginfile.php/1/a.pdf", ""},
 		{"other path", "https://c.example.cl/pluginfile.php/1/a.pdf", ""},
 		{"login page", "https://c.example.cl/login/index.php", ""},
@@ -69,7 +71,7 @@ func TestTokenRequestURL(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := tokenRequestURL(tc.in, "TKN")
+			got, err := tokenRequestURL(tc.in, "TKN", "c.example.cl")
 			if tc.want == "" {
 				if !errors.Is(err, ErrTokenNotAttachable) || got != "" {
 					t.Errorf("got %q, %v; want ErrTokenNotAttachable", got, err)
@@ -84,7 +86,7 @@ func TestTokenRequestURL(t *testing.T) {
 }
 
 func TestTokenRequestURL_EscapesToken(t *testing.T) {
-	got, err := tokenRequestURL("https://c.example.cl/webservice/pluginfile.php/1/a.pdf", "a+b/c=d&e f")
+	got, err := tokenRequestURL("https://c.example.cl/webservice/pluginfile.php/1/a.pdf", "a+b/c=d&e f", "c.example.cl")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +107,7 @@ func TestDownload_TokenAttachedOnlyAsQueryAndURLsStayClean(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	task := domain.Task{ID: 7, URL: srv.URL + pluginfileTestPath + "?forcedownload=1", Token: testToken, OutputDir: t.TempDir()}
+	task := domain.Task{ID: 7, URL: srv.URL + pluginfileTestPath + "?forcedownload=1", Token: testToken, TokenHost: hostOf(srv.URL + pluginfileTestPath + "?forcedownload=1"), OutputDir: t.TempDir()}
 	var progressURLs []string
 	res, err := tokenPlugin(srv, nil).Download(context.Background(), task, func(u domain.ProgressUpdate) {
 		progressURLs = append(progressURLs, u.URL)
@@ -142,7 +144,7 @@ func TestDownload_ExistingTokenInURLIsReplaced(t *testing.T) {
 		servePDF(w)
 	}))
 	defer srv.Close()
-	task := domain.Task{ID: 1, URL: srv.URL + pluginfileTestPath + "?token=OLDTOKEN&forcedownload=1", Token: testToken, OutputDir: t.TempDir()}
+	task := domain.Task{ID: 1, URL: srv.URL + pluginfileTestPath + "?token=OLDTOKEN&forcedownload=1", Token: testToken, TokenHost: hostOf(srv.URL + pluginfileTestPath + "?token=OLDTOKEN&forcedownload=1"), OutputDir: t.TempDir()}
 	if _, err := tokenPlugin(srv, nil).Download(context.Background(), task, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -168,7 +170,7 @@ func TestDownload_TokenNotAttachedToIneligibleURLs(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := tokenPlugin(tlsSrv, nil).Download(context.Background(),
-				domain.Task{ID: 1, URL: u, Token: testToken, OutputDir: t.TempDir()}, nil)
+				domain.Task{ID: 1, URL: u, Token: testToken, TokenHost: hostOf(u), OutputDir: t.TempDir()}, nil)
 			if !errors.Is(err, ErrTokenNotAttachable) {
 				t.Fatalf("err = %v", err)
 			}
@@ -237,7 +239,7 @@ func TestDownload_JSONErrorBody(t *testing.T) {
 			}))
 			defer srv.Close()
 			dir := t.TempDir()
-			task := domain.Task{ID: 1, URL: srv.URL + "/webservice/pluginfile.php/1/mod_resource/content/1/" + tc.file, Token: testToken, OutputDir: dir}
+			task := domain.Task{ID: 1, URL: srv.URL + "/webservice/pluginfile.php/1/mod_resource/content/1/" + tc.file, Token: testToken, TokenHost: hostOf(srv.URL + "/webservice/pluginfile.php/1/mod_resource/content/1/" + tc.file), OutputDir: dir}
 			res, err := tokenPlugin(srv, nil).Download(context.Background(), task, nil)
 			if tc.wantOK {
 				if err != nil || res == nil || !fileExists(filepath.Join(dir, tc.file)) {
@@ -274,7 +276,7 @@ func TestDownload_PDFStillValidatedAfterJSONCheck(t *testing.T) {
 	}))
 	defer srv.Close()
 	_, err := tokenPlugin(srv, nil).Download(context.Background(),
-		domain.Task{ID: 1, URL: srv.URL + pluginfileTestPath, Token: testToken, OutputDir: t.TempDir()}, nil)
+		domain.Task{ID: 1, URL: srv.URL + pluginfileTestPath, Token: testToken, TokenHost: hostOf(srv.URL + pluginfileTestPath), OutputDir: t.TempDir()}, nil)
 	if !errors.Is(err, ErrNotPDF) {
 		t.Errorf("err = %v, want ErrNotPDF", err)
 	}
@@ -298,7 +300,7 @@ func TestDownload_ErrorsAreScrubbed(t *testing.T) {
 		}
 	}
 	task := func(srv *httptest.Server, dir string) domain.Task {
-		return domain.Task{ID: 1, URL: srv.URL + pluginfileTestPath, Token: testToken, OutputDir: dir}
+		return domain.Task{ID: 1, URL: srv.URL + pluginfileTestPath, Token: testToken, TokenHost: hostOf(srv.URL + pluginfileTestPath), OutputDir: dir}
 	}
 
 	t.Run("connection closed by server", func(t *testing.T) {
@@ -398,8 +400,8 @@ func TestDownload_ErrorsAreScrubbed(t *testing.T) {
 }
 
 func TestScrubTokenError(t *testing.T) {
-	task := domain.Task{URL: "https://c.example.cl/webservice/pluginfile.php/1/a.pdf", Token: "a+b/c=d&e f"}
-	reqURL, _ := tokenRequestURL(task.URL, task.Token)
+	task := domain.Task{URL: "https://c.example.cl/webservice/pluginfile.php/1/a.pdf", Token: "a+b/c=d&e f", TokenHost: hostOf("https://c.example.cl/webservice/pluginfile.php/1/a.pdf")}
+	reqURL, _ := tokenRequestURL(task.URL, task.Token, "c.example.cl")
 
 	t.Run("unrelated error returned as is", func(t *testing.T) {
 		e := errors.New("disk full")
@@ -483,7 +485,7 @@ func TestDownload_TokenNotSentToOtherHostOnRedirect(t *testing.T) {
 	l := logger.NewWriter(&buf)
 	p := New(WithHTTPClient(redirectClient(t, origin, l)), WithLogger(l))
 	dir := t.TempDir()
-	res, err := p.Download(context.Background(), domain.Task{ID: 3, URL: origin.URL + pluginfileTestPath, Token: testToken, OutputDir: dir}, nil)
+	res, err := p.Download(context.Background(), domain.Task{ID: 3, URL: origin.URL + pluginfileTestPath, Token: testToken, TokenHost: hostOf(origin.URL + pluginfileTestPath), OutputDir: dir}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +527,7 @@ func TestDownload_TokenNotCopiedOnSameHostRedirect(t *testing.T) {
 		servePDF(w)
 	}))
 	defer srv.Close()
-	task := domain.Task{ID: 1, URL: srv.URL + "/webservice/pluginfile.php/1/first.pdf", Token: testToken, OutputDir: t.TempDir()}
+	task := domain.Task{ID: 1, URL: srv.URL + "/webservice/pluginfile.php/1/first.pdf", Token: testToken, TokenHost: hostOf(srv.URL + "/webservice/pluginfile.php/1/first.pdf"), OutputDir: t.TempDir()}
 	if _, err := tokenPlugin(srv, nil).Download(context.Background(), task, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -648,7 +650,7 @@ func TestCanary_NoSecretEverLeaves(t *testing.T) {
 	for _, s := range sections {
 		for _, f := range s.Files {
 			observed = append(observed, "api file url: "+f.URL, "api file name: "+f.Name+" "+f.SubDir)
-			task := domain.Task{ID: downloaded + 1, URL: f.URL, Token: token, OutputDir: filepath.Join(dir, f.SubDir)}
+			task := domain.Task{ID: downloaded + 1, URL: f.URL, Token: token, TokenHost: hostOf(f.URL), OutputDir: filepath.Join(dir, f.SubDir)}
 			l.LogTaskStart(task.ID, task.URL)
 			res, err := plugin.Download(ctx, task, func(u domain.ProgressUpdate) {
 				observed = append(observed, "progress url: "+u.URL)
@@ -670,8 +672,8 @@ func TestCanary_NoSecretEverLeaves(t *testing.T) {
 
 	// failing downloads: wrong token (JSON error body), redirect to login, dial error
 	for name, tk := range map[string]domain.Task{
-		"wrong token": {ID: 90, URL: srv.URL + pluginfileTestPath, Token: "WRONG-" + canaryToken, OutputDir: dir},
-		"login redir": {ID: 91, URL: srv.URL + "/webservice/pluginfile.php/redir/a.pdf", Token: canaryToken, OutputDir: dir},
+		"wrong token": {ID: 90, URL: srv.URL + pluginfileTestPath, Token: "WRONG-" + canaryToken, TokenHost: hostOf(srv.URL + pluginfileTestPath), OutputDir: dir},
+		"login redir": {ID: 91, URL: srv.URL + "/webservice/pluginfile.php/redir/a.pdf", Token: canaryToken, TokenHost: hostOf(srv.URL + "/webservice/pluginfile.php/redir/a.pdf"), OutputDir: dir},
 	} {
 		res, err := plugin.Download(ctx, tk, nil)
 		if err == nil || res != nil {
@@ -686,13 +688,13 @@ func TestCanary_NoSecretEverLeaves(t *testing.T) {
 	deadPlugin := tokenPlugin(dead, l)
 	deadURL := dead.URL + pluginfileTestPath
 	dead.Close()
-	_, err = deadPlugin.Download(ctx, domain.Task{ID: 92, URL: deadURL, Token: canaryToken, OutputDir: dir}, nil)
+	_, err = deadPlugin.Download(ctx, domain.Task{ID: 92, URL: deadURL, Token: canaryToken, TokenHost: hostOf(deadURL), OutputDir: dir}, nil)
 	note("dial error", err)
 	if err == nil {
 		t.Fatal("dial error expected")
 	}
 	// ineligible URL
-	_, err = plugin.Download(ctx, domain.Task{ID: 93, URL: srv.URL + "/login/index.php", Token: canaryToken, OutputDir: dir}, nil)
+	_, err = plugin.Download(ctx, domain.Task{ID: 93, URL: srv.URL + "/login/index.php", Token: canaryToken, TokenHost: hostOf(srv.URL + "/login/index.php"), OutputDir: dir}, nil)
 	note("ineligible", err)
 
 	// Accidental logging by any code path.
@@ -723,5 +725,29 @@ func TestCanary_NoSecretEverLeaves(t *testing.T) {
 		if strings.Contains(o, "token=") {
 			t.Errorf("observable output carries a token parameter: %s", o)
 		}
+	}
+}
+
+// hostOf returns the host[:port] of rawURL, for pinning a test token to it.
+func hostOf(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.Host
+}
+
+func TestTokenRequestURLEmptyHostNeverAttaches(t *testing.T) {
+	if got, err := tokenRequestURL("https://c.example.cl/webservice/pluginfile.php/1/a.pdf", "TKN", ""); !errors.Is(err, ErrTokenNotAttachable) || got != "" {
+		t.Errorf("got %q, %v; want ErrTokenNotAttachable", got, err)
+	}
+}
+
+func TestRefererFor(t *testing.T) {
+	if got := refererFor("https://c.example.cl/webservice/pluginfile.php/1/a.pdf?x=1"); got != "https://c.example.cl/" {
+		t.Errorf("got %q", got)
+	}
+	if got := refererFor("/relative"); got != "" {
+		t.Errorf("got %q", got)
 	}
 }

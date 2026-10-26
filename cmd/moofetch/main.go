@@ -88,10 +88,20 @@ func createTasks(form *tui.FormData, outputDir string) ([]domain.Task, error) {
 			URL:       it.URL,
 			Cookie:    form.Cookie,
 			Token:     form.Token,
+			TokenHost: tokenHostFor(form),
 			OutputDir: dir,
 		}
 	}
 	return tasks, nil
+}
+
+// tokenHostFor is the only host a web-service token may be sent to: the campus
+// the user logged in to. Without a token there is nothing to pin.
+func tokenHostFor(form *tui.FormData) string {
+	if form.Token == "" {
+		return ""
+	}
+	return strings.ToLower(form.Campus)
 }
 
 // safeOutputDir joins outputDir and subDir, refusing any result that is not

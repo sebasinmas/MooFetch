@@ -209,7 +209,9 @@ func (p *Plugin) CanHandle(rawURL string) bool {
 // tokenRequestURL for the rules). Errors never contain the token.
 func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
 	res, err := p.download(ctx, task, progress)
-	if err != nil && task.Token != "" {
+	if err != nil {
+		// Always scrub: even in cookie mode a user-pasted ?token= URL must
+		// not reach the error text.
 		return nil, scrubTokenError(err, task)
 	}
 	return res, err
@@ -234,7 +236,7 @@ func (p *Plugin) download(ctx context.Context, task domain.Task, progress domain
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "es-CL,es;q=0.9,en;q=0.8")
-	req.Header.Set("Referer", "https://campusvirtual.ufro.cl/")
+	req.Header.Set("Referer", refererFor(task.URL))
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -307,7 +309,17 @@ func requestURL(task domain.Task) (string, error) {
 	if task.Token == "" {
 		return task.URL, nil
 	}
-	return tokenRequestURL(task.URL, task.Token)
+	return tokenRequestURL(task.URL, task.Token, task.TokenHost)
+}
+
+// refererFor is the origin of the downloaded URL: the Referer never names a
+// host other than the one being asked.
+func refererFor(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host + "/"
 }
 
 // guardTokenBody applies rejectMoodleJSONError to token downloads only.
@@ -320,13 +332,15 @@ func guardTokenBody(token string, r io.Reader) (io.Reader, error) {
 
 // tokenRequestURL returns the URL to request when a token is used: rawURL plus
 // token=<escaped>. The token is only attached if the URL is https, has no
-// embedded credentials and its path contains /webservice/pluginfile.php/;
+// embedded credentials, its host is exactly tokenHost (the campus the token was
+// issued for; empty never attaches) and its path contains /webservice/pluginfile.php/;
 // otherwise ErrTokenNotAttachable is returned and nothing is sent. Any token or
 // wstoken already present in rawURL is dropped first. The result is used for
 // the request only: Task.URL and Result.URL stay clean.
-func tokenRequestURL(rawURL, token string) (string, error) {
+func tokenRequestURL(rawURL, token, tokenHost string) (string, error) {
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil ||
+		tokenHost == "" || !strings.EqualFold(u.Host, tokenHost) ||
 		!strings.Contains(u.Path, pluginfilePath) {
 		return "", ErrTokenNotAttachable
 	}
@@ -364,7 +378,7 @@ func (e *scrubbedError) IsFatalAuth() bool { return domain.IsFatalAuth(e.cause) 
 func scrubTokenError(err error, task domain.Task) error {
 	msg := err.Error()
 	pairs := []string{}
-	if reqURL, e := tokenRequestURL(task.URL, task.Token); e == nil {
+	if reqURL, e := tokenRequestURL(task.URL, task.Token, task.TokenHost); e == nil {
 		pairs = append(pairs, reqURL, task.URL)
 	}
 	pairs = append(pairs,
