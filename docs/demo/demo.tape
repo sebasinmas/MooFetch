@@ -9,7 +9,7 @@
 #   vhs docs/demo/demo.tape
 #
 # Requiere: vhs, ttyd y ffmpeg. Los tiempos (Sleep) esperan a los pasos
-# simulados de la app (logo, lectura de la página, descargas); si cambias esas
+# simulados de la app (logo, inicio de sesión, lectura de cursos, descargas); si cambias esas
 # pausas en cmd/moofetch/demo.go, ajusta también esta cinta.
 # ==============================================================================
 
@@ -52,37 +52,61 @@ Enter
 Sleep 3800ms
 Enter
 
-# --- 3. Consentimiento para detectar la cookie ---------------------------------
+# --- 3. ¿Cómo quieres entrar? Usuario y contraseña viene preseleccionado ------
 Sleep 3s
 Enter
 
-# --- 4. Cookie "detectada" y URL del curso ------------------------------------
+# --- 4. Usuario y contraseña del campus (la contraseña va enmascarada) --------
 Sleep 2s
-Type "https://campusvirtual.ufro.cl/course/view.php?id=4821"
+Type "estudiante.demo"
+Sleep 500ms
+Enter
+Sleep 600ms
+Type "contraseña-demo"
 Sleep 1s
 Enter
 
-# --- 5. Lectura de la página (spinner ~1,8 s) y lista de recursos -------------
-Sleep 3500ms
-
-# --- 6. Elegir qué descargar: todo viene marcado ------------------------------
-Down 3
-Sleep 400ms
+# --- 5. Inicio de sesión y lista de cursos (ninguno viene marcado) ------------
+Sleep 4s
 Space
-Sleep 600ms
-Down 4
-Sleep 400ms
+Sleep 500ms
+Down 1
+Sleep 300ms
 Space
 Sleep 2s
 Enter
 
-# --- 7. Descargas concurrentes y resumen --------------------------------------
+# --- 6. Secciones del primer curso: todo marcado -------------------------------
+Sleep 3500ms
+Down 2
+Sleep 300ms
+Space
+Sleep 2s
+Enter
+
+# --- 7. Archivos del primer curso: todo marcado, desmarcamos uno --------------
+Sleep 3s
+Down 3
+Sleep 300ms
+Space
+Sleep 2s
+Enter
+
+# --- 8. Segundo curso: secciones y archivos tal cual --------------------------
+Sleep 3s
+Enter
+Sleep 3s
+Enter
+
+# --- 9. Descargas concurrentes y resumen --------------------------------------
 Sleep 6s
 
 Enter
 Sleep 1500ms
 
-# --- 8. Los archivos quedaron en disco -----------------------------------------
-Type "ls /tmp/moofetch-demo"
+# --- 10. Los archivos quedaron ordenados por curso y sección ------------------
+Type "clear"
 Enter
-Sleep 3s
+Type "cd /tmp/moofetch-demo && find . -type f | sort"
+Enter
+Sleep 5s
