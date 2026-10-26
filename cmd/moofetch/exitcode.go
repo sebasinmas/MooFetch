@@ -111,6 +111,7 @@ func isUsageError(err error) bool {
 		"se requiere cookie de sesión",
 		"falta la cookie de sesión",
 		"no se detectaron urls válidas",
+		"valor de --auth inválido",
 		"universidad desconocida",
 		"dominio inválido",
 	}

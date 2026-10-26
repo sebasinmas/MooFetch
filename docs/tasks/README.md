@@ -26,7 +26,8 @@ graph TD
 | [TASK-06 Cobertura > 80%](TASK-06-coverage-80.md) | [x] |
 | [TASK-07 Firefox session store](TASK-07-firefox-session-store.md) (fusionada; verificación manual en Firefox pendiente) | [ ] |
 | [TASK-08 Verificación manual Edge/Opera/Safari/Chrome](TASK-08-verificacion-manual-navegadores.md) | [ ] |
-| [TASK-09 Logo antes de la selección de campus](TASK-09-orden-logo-campus.md) (en proceso) | [ ] |
+| [TASK-09 Logo antes de la selección de campus](TASK-09-orden-logo-campus.md) (hecho) | [x] |
+| [TASK-10 Spike de la API móvil de Moodle](TASK-10-spike-api-movil.md) (hecho) | [x] |
 
 Requisito de toolchain: Go 1.24+ (ver `go.mod`).
 

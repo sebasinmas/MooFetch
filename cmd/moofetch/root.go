@@ -38,6 +38,9 @@ func shouldUseHeadless() bool {
 var rootCmd = &cobra.Command{
 	Use:   "moofetch",
 	Short: "Descarga masiva de archivos desde campus Moodle usando tu sesión",
+	PersistentPreRunE: func(*cobra.Command, []string) error {
+		return validateAuthFlag()
+	},
 	Long: `MooFetch descarga en paralelo los archivos (PDF y otro material) de un campus
 Moodle usando la cookie de sesión de tu navegador.
 
@@ -119,6 +122,7 @@ func init() {
 	pf.IntVarP(&flagConcurrency, "concurrency", "c", 5, "descargas simultáneas")
 
 	// Sesión
+	pf.StringVar(&flagAuth, "auth", authModeAPI, "cómo entra el asistente: api (usuario y contraseña) o cookie (la de tu navegador)")
 	pf.StringVarP(&flagCookie, "cookie", "k", "", "cookie de sesión (ej. MoodleSession=abc123)")
 	pf.StringVar(&flagUni, "uni", "", "universidad del catálogo, para leer la cookie del navegador (ej. ufro)")
 	pf.StringVar(&flagDomain, "domain", "", "dominio del campus, para leer la cookie del navegador (ej. campus.ejemplo.cl)")
@@ -137,7 +141,7 @@ func init() {
 	_ = pf.MarkHidden("plain")
 
 	setFlagGroup(pf, groupDownload, "output", "concurrency")
-	setFlagGroup(pf, groupSession, "cookie", "uni", "domain")
+	setFlagGroup(pf, groupSession, "auth", "cookie", "uni", "domain")
 	setFlagGroup(pf, groupOutput, "headless", "log")
 	setFlagGroup(pf, groupOther, "demo")
 

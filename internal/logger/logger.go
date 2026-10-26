@@ -5,8 +5,10 @@ package logger
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +26,26 @@ func (c SessionCookie) LogValue() slog.Value {
 // String returns the safe redacted representation of the session cookie.
 func (c SessionCookie) String() string {
 	return RedactCookie(string(c))
+}
+
+// Token is a typed string wrapper for Moodle web-service tokens. Like
+// SessionCookie it implements slog.LogValuer so it can never reach a log in
+// clear text: only its length is shown.
+type Token string
+
+// LogValue implements slog.LogValuer to prevent secret leakage in logs.
+func (t Token) LogValue() slog.Value {
+	return slog.StringValue(RedactToken(string(t)))
+}
+
+// String returns the safe redacted representation of the token.
+func (t Token) String() string {
+	return RedactToken(string(t))
+}
+
+// GoString keeps %#v from printing the secret.
+func (t Token) GoString() string {
+	return RedactToken(string(t))
 }
 
 // Logger encapsulates an *slog.Logger writing structured, redacted logs to disk.
@@ -53,28 +75,47 @@ func New(targetPath string) (*Logger, error) {
 	)
 	_, _ = f.WriteString(header)
 
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
-			// Redact any attribute key indicating cookies or auth tokens
-			k := strings.ToLower(a.Key)
-			if strings.Contains(k, "cookie") || strings.Contains(k, "token") || strings.Contains(k, "session") {
-				if str, ok := a.Value.Any().(string); ok {
-					return slog.String(a.Key, RedactCookie(str))
-				}
-			}
-			return a
-		},
-	}
-
-	handler := slog.NewTextHandler(f, opts)
-	sl := slog.New(handler)
-
 	return &Logger{
 		file:     f,
 		filePath: targetPath,
-		slog:     sl,
+		slog:     slog.New(slog.NewTextHandler(f, handlerOptions())),
 	}, nil
+}
+
+// NewWriter creates a Logger that writes the same redacted structured text to
+// w instead of a file. Close does not close w. It is meant for tests and for
+// callers that already own the destination.
+func NewWriter(w io.Writer) *Logger {
+	return &Logger{slog: slog.New(slog.NewTextHandler(w, handlerOptions()))}
+}
+
+// handlerOptions builds the slog options shared by every Logger: attributes
+// whose key looks secret are masked, and every other text (message, string
+// attributes and error values) is scrubbed with RedactURL as a safety net.
+func handlerOptions() *slog.HandlerOptions {
+	return &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
+			return redactAttr(a)
+		},
+	}
+}
+
+func redactAttr(a slog.Attr) slog.Attr {
+	k := strings.ToLower(a.Key)
+	str, isString := a.Value.Any().(string)
+	switch {
+	case isString && (strings.Contains(k, "password") || strings.Contains(k, "token")):
+		return slog.String(a.Key, RedactToken(str))
+	case isString && (strings.Contains(k, "cookie") || strings.Contains(k, "session")):
+		return slog.String(a.Key, RedactCookie(str))
+	case isString:
+		return slog.String(a.Key, RedactURL(str))
+	}
+	if err, ok := a.Value.Any().(error); ok && err != nil {
+		return slog.String(a.Key, RedactURL(err.Error()))
+	}
+	return a
 }
 
 // Slog returns the underlying *slog.Logger instance.
@@ -172,7 +213,7 @@ func (l *Logger) Printf(format string, args ...any) {
 func (l *Logger) LogTaskStart(taskID int, rawURL string) {
 	l.Info("task queued",
 		slog.Int("task_id", taskID),
-		slog.String("url", rawURL),
+		slog.String("url", RedactURL(rawURL)),
 	)
 }
 
@@ -181,8 +222,8 @@ func (l *Logger) LogTaskRedirect(taskID int, fromURL, toURL string, status int) 
 	l.Info("task redirect",
 		slog.Int("task_id", taskID),
 		slog.Int("status", status),
-		slog.String("from_url", fromURL),
-		slog.String("to_url", toURL),
+		slog.String("from_url", RedactURL(fromURL)),
+		slog.String("to_url", RedactURL(toURL)),
 	)
 }
 
@@ -193,7 +234,7 @@ func (l *Logger) LogTaskResponse(taskID int, status int, contentType string, con
 		slog.Int("status", status),
 		slog.String("content_type", contentType),
 		slog.Int64("content_length", contentLength),
-		slog.String("disposition", disposition),
+		slog.String("disposition", RedactURL(disposition)),
 	)
 }
 
@@ -201,7 +242,7 @@ func (l *Logger) LogTaskResponse(taskID int, status int, contentType string, con
 func (l *Logger) LogTaskSuccess(taskID int, filename string, bytesRead int64) {
 	l.Info("task success",
 		slog.Int("task_id", taskID),
-		slog.String("filename", filename),
+		slog.String("filename", RedactURL(filename)),
 		slog.Int64("bytes", bytesRead),
 	)
 }
@@ -214,8 +255,8 @@ func (l *Logger) LogTaskError(taskID int, rawURL string, err error) {
 	}
 	l.Error("task error",
 		slog.Int("task_id", taskID),
-		slog.String("url", rawURL),
-		slog.String("error", errMsg),
+		slog.String("url", RedactURL(rawURL)),
+		slog.String("error", RedactURL(errMsg)),
 	)
 }
 
@@ -259,4 +300,34 @@ func RedactCookie(rawCookie string) string {
 		return "(none provided)"
 	}
 	return strings.Join(redactedParts, "; ")
+}
+
+// RedactToken hides a web-service token completely, revealing only its length.
+func RedactToken(raw string) string {
+	if raw == "" {
+		return "(none provided)"
+	}
+	return fmt.Sprintf("***(len: %d)", len(raw))
+}
+
+const redacted = "REDACTED"
+
+var (
+	// secretParam matches token=..., wstoken=... and password=... when they
+	// appear as a query/form parameter or at the start of a text.
+	secretParam = regexp.MustCompile(`(?i)(^|[?&;\s"'(\[{,])((?:ws)?token|password)=([^&\s"'<>)\]}#,]*)`)
+	// userinfo matches user[:password]@ right after a URL scheme.
+	userinfo = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*://)[^/\s"'@?#]*@`)
+)
+
+// RedactURL removes secrets from a URL or from any text containing URLs: the
+// values of the token, wstoken and password parameters are replaced and
+// user:password@ credentials are dropped. It is idempotent and safe to apply
+// to texts that hold no URL at all.
+func RedactURL(raw string) string {
+	if raw == "" {
+		return raw
+	}
+	out := userinfo.ReplaceAllString(raw, "${1}")
+	return secretParam.ReplaceAllString(out, "${1}${2}="+redacted)
 }

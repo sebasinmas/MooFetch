@@ -1,0 +1,32 @@
+{
+  "sitename": "Campus Virtual UFRO",
+  "username": "alumno.ejemplo",
+  "firstname": "Alumno",
+  "lastname": "Ejemplo",
+  "fullname": "Alumno Ejemplo",
+  "lang": "es",
+  "userid": 3456,
+  "siteurl": "{{HOST}}",
+  "userpictureurl": "{{HOST}}/theme/image.php/boost/core/1566/u/f1",
+  "functions": [
+    {"name": "core_webservice_get_site_info", "version": "2018051704"},
+    {"name": "core_enrol_get_users_courses", "version": "2018051704"},
+    {"name": "core_course_get_contents", "version": "2018051704"}
+  ],
+  "downloadfiles": 1,
+  "uploadfiles": 1,
+  "release": "3.5.4+ (Build: 20190218)",
+  "version": "2018051704.05",
+  "mobilecssurl": "",
+  "advancedfeatures": [
+    {"name": "usecomments", "value": 1}
+  ],
+  "usercanmanageownfiles": true,
+  "userquota": 104857600,
+  "usermaxuploadfilesize": 104857600,
+  "userhomepage": 0,
+  "siteid": 1,
+  "sitecalendartype": "gregorian",
+  "usercalendartype": "gregorian",
+  "theme": "boost"
+}

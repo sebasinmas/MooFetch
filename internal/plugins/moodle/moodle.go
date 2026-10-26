@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -103,31 +104,40 @@ func defaultHTTPClient(l *logger.Logger) *http.Client {
 		IdleConnTimeout:       90 * time.Second,
 	}
 	return &http.Client{
-		Jar:       jar,
-		Transport: transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			if l != nil && len(via) > 0 {
-				taskID, _ := req.Context().Value(taskIDContextKey).(int)
-				l.LogTaskRedirect(taskID, via[len(via)-1].URL.String(), req.URL.String(), req.Response.StatusCode)
-			}
+		Jar:           jar,
+		Transport:     transport,
+		CheckRedirect: redirectPolicy(l),
+		Timeout:       0,
+	}
+}
 
-			target := strings.ToLower(req.URL.String())
-			if strings.Contains(target, "/login") || strings.Contains(target, "login.php") {
-				return fmt.Errorf("%w: redirected to login page (%s)", ErrAuthenticationFailed, req.URL.String())
-			}
-			if len(via) >= 10 {
-				return errors.New("stopped after 10 redirects")
-			}
+// redirectPolicy is the CheckRedirect of the default client. A redirect
+// target is a fresh URL taken from the Location header, so a web-service token
+// that was added to the first request's query is never copied to it (Go also
+// drops Cookie/Authorization headers when the host changes). Logged URLs go
+// through logger.RedactURL.
+func redirectPolicy(l *logger.Logger) func(req *http.Request, via []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if l != nil && len(via) > 0 {
+			taskID, _ := req.Context().Value(taskIDContextKey).(int)
+			l.LogTaskRedirect(taskID, via[len(via)-1].URL.String(), req.URL.String(), req.Response.StatusCode)
+		}
 
-			// Reliably propagate cookie across redirects within the same domain
-			if cookie, ok := req.Context().Value(cookieContextKey).(string); ok && cookie != "" {
-				if len(via) > 0 && isSameDomain(req.URL.Hostname(), via[0].URL.Hostname()) {
-					req.Header.Set("Cookie", cookie)
-				}
+		target := strings.ToLower(req.URL.String())
+		if strings.Contains(target, "/login") || strings.Contains(target, "login.php") {
+			return fmt.Errorf("%w: redirected to login page (%s)", ErrAuthenticationFailed, logger.RedactURL(req.URL.String()))
+		}
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+
+		// Reliably propagate cookie across redirects within the same domain
+		if cookie, ok := req.Context().Value(cookieContextKey).(string); ok && cookie != "" {
+			if len(via) > 0 && isSameDomain(req.URL.Hostname(), via[0].URL.Hostname()) {
+				req.Header.Set("Cookie", cookie)
 			}
-			return nil
-		},
-		Timeout: 0,
+		}
+		return nil
 	}
 }
 
@@ -194,12 +204,28 @@ func (p *Plugin) CanHandle(rawURL string) bool {
 	return u.Scheme == "http" || u.Scheme == "https"
 }
 
-// Download downloads the resource specified by task.URL using the given cookie.
+// Download downloads the resource specified by task.URL using the given cookie
+// or, when task.Token is set, the Moodle web-service token (see
+// tokenRequestURL for the rules). Errors never contain the token.
 func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
+	res, err := p.download(ctx, task, progress)
+	if err != nil {
+		// Always scrub: even in cookie mode a user-pasted ?token= URL must
+		// not reach the error text.
+		return nil, scrubTokenError(err, task)
+	}
+	return res, err
+}
+
+func (p *Plugin) download(ctx context.Context, task domain.Task, progress domain.ProgressFunc) (*domain.Result, error) {
 	ctx = context.WithValue(ctx, cookieContextKey, task.Cookie)
 	ctx = context.WithValue(ctx, taskIDContextKey, task.ID)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, task.URL, nil)
+	reqURL, err := requestURL(task)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -210,7 +236,7 @@ func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain
 	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0")
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,application/pdf,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "es-CL,es;q=0.9,en;q=0.8")
-	req.Header.Set("Referer", "https://campusvirtual.ufro.cl/")
+	req.Header.Set("Referer", refererFor(task.URL))
 
 	resp, err := p.client.Do(req)
 	if err != nil {
@@ -247,6 +273,9 @@ func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain
 		timeout = 30 * time.Second
 	}
 	streamReader := newIdleTimeoutReader(resp.Body, resp.Body, timeout)
+	if streamReader, err = guardTokenBody(task.Token, streamReader); err != nil {
+		return nil, err
+	}
 	body, err := requirePDFMagic(streamReader, filename, resp.Header.Get("Content-Type"))
 	if err != nil {
 		return nil, err
@@ -266,6 +295,136 @@ func (p *Plugin) Download(ctx context.Context, task domain.Task, progress domain
 		TotalBytes: resp.ContentLength,
 		Err:        nil,
 	}, nil
+}
+
+// pluginfilePath marks the web-service file endpoint that accepts ?token=.
+const pluginfilePath = "/webservice/pluginfile.php/"
+
+// ErrTokenNotAttachable means a task carries a token but its URL is not one the
+// token may be sent to.
+var ErrTokenNotAttachable = errors.New("no se envía el token: la URL debe ser https y apuntar a webservice/pluginfile.php")
+
+// requestURL is task.URL, plus the token when the task carries one.
+func requestURL(task domain.Task) (string, error) {
+	if task.Token == "" {
+		return task.URL, nil
+	}
+	return tokenRequestURL(task.URL, task.Token, task.TokenHost)
+}
+
+// refererFor is the origin of the downloaded URL: the Referer never names a
+// host other than the one being asked.
+func refererFor(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host + "/"
+}
+
+// guardTokenBody applies rejectMoodleJSONError to token downloads only.
+func guardTokenBody(token string, r io.Reader) (io.Reader, error) {
+	if token == "" {
+		return r, nil
+	}
+	return rejectMoodleJSONError(r)
+}
+
+// tokenRequestURL returns the URL to request when a token is used: rawURL plus
+// token=<escaped>. The token is only attached if the URL is https, has no
+// embedded credentials, its host is exactly tokenHost (the campus the token was
+// issued for; empty never attaches) and its path contains /webservice/pluginfile.php/;
+// otherwise ErrTokenNotAttachable is returned and nothing is sent. Any token or
+// wstoken already present in rawURL is dropped first. The result is used for
+// the request only: Task.URL and Result.URL stay clean.
+func tokenRequestURL(rawURL, token, tokenHost string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil ||
+		tokenHost == "" || !strings.EqualFold(u.Host, tokenHost) ||
+		!strings.Contains(u.Path, pluginfilePath) {
+		return "", ErrTokenNotAttachable
+	}
+	q := stripSecretParams(u.RawQuery)
+	if q != "" {
+		q += "&"
+	}
+	u.RawQuery = q + "token=" + url.QueryEscape(token)
+	u.Fragment = ""
+	return u.String(), nil
+}
+
+// scrubbedError carries the text of an error with every trace of the token
+// removed. It deliberately does not implement Unwrap (the chain may hold a
+// *url.Error with the tokenised URL), but errors.Is and the fatal-auth check
+// still see the original cause.
+type scrubbedError struct {
+	msg   string
+	cause error
+}
+
+func (e *scrubbedError) Error() string { return e.msg }
+
+// Is reports whether the original error matches target.
+func (e *scrubbedError) Is(target error) bool { return errors.Is(e.cause, target) }
+
+// IsFatalAuth implements domain.FatalAuthError.
+func (e *scrubbedError) IsFatalAuth() bool { return domain.IsFatalAuth(e.cause) }
+
+// scrubTokenError removes the token from err's text: the tokenised request URL
+// (as printed inside a *url.Error) is replaced by the clean task URL, any
+// remaining raw or escaped token by REDACTED, and finally logger.RedactURL
+// catches other token= values. An error that never mentioned the token is
+// returned as is.
+func scrubTokenError(err error, task domain.Task) error {
+	msg := err.Error()
+	pairs := []string{}
+	if reqURL, e := tokenRequestURL(task.URL, task.Token, task.TokenHost); e == nil {
+		pairs = append(pairs, reqURL, task.URL)
+	}
+	pairs = append(pairs,
+		task.Token, "REDACTED",
+		url.QueryEscape(task.Token), "REDACTED",
+		url.PathEscape(task.Token), "REDACTED",
+	)
+	clean := logger.RedactURL(strings.NewReplacer(pairs...).Replace(msg))
+	if clean == msg {
+		return err
+	}
+	return &scrubbedError{msg: clean, cause: err}
+}
+
+// maxJSONErrorBody is the largest body inspected as a possible Moodle error.
+const maxJSONErrorBody = 4096
+
+// rejectMoodleJSONError detects the error Moodle answers with HTTP 200 and a
+// small JSON body when the token is invalid ({"errorcode":"invalidtoken",...})
+// so it is not saved as a file or reported as "not a PDF". Authentication
+// error codes map to ErrAuthenticationFailed. Other bodies pass untouched.
+func rejectMoodleJSONError(r io.Reader) (io.Reader, error) {
+	br := bufio.NewReaderSize(r, 32*1024)
+	head, err := br.Peek(maxJSONErrorBody)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("stream read error: %w", err)
+	}
+	if err == nil { // body longer than the window: a real file
+		return br, nil
+	}
+	var probe struct {
+		ErrorCode string `json:"errorcode"`
+		Exception string `json:"exception"`
+		Error     string `json:"error"`
+		Message   string `json:"message"`
+	}
+	trimmed := bytes.TrimSpace(head)
+	if len(trimmed) == 0 || trimmed[0] != '{' || json.Unmarshal(trimmed, &probe) != nil ||
+		probe.ErrorCode == "" || (probe.Exception == "" && probe.Error == "" && probe.Message == "") {
+		return br, nil
+	}
+	code := safeCode(probe.ErrorCode)
+	if code == "invalidtoken" || code == "accessexception" {
+		return nil, fmt.Errorf("%w: el campus rechazó el token (errorcode: %s)", ErrAuthenticationFailed, code)
+	}
+	return nil, fmt.Errorf("el campus respondió un error en lugar del archivo (errorcode: %s)", code)
 }
 
 // pdfMagic is the signature every PDF file starts with.
@@ -461,27 +620,4 @@ func isMeaningfulFilename(name string) bool {
 		}
 	}
 	return strings.Contains(clean, ".")
-}
-
-func sanitizeFilename(name string) string {
-	cleaned := filepath.Base(filepath.Clean(name))
-	cleaned = strings.Trim(cleaned, `"' `)
-	// Replace problematic path characters
-	replacer := strings.NewReplacer(
-		"/", "_",
-		"\\", "_",
-		":", "_",
-		"*", "_",
-		"?", "_",
-		"\"", "_",
-		"<", "_",
-		">", "_",
-		"|", "_",
-		"\x00", "",
-	)
-	cleaned = replacer.Replace(cleaned)
-	if cleaned == "" || cleaned == "." {
-		return "download.pdf"
-	}
-	return cleaned
 }

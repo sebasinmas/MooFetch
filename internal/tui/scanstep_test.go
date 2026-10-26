@@ -294,10 +294,10 @@ func TestDemoTagsAndText(t *testing.T) {
 	if !strings.Contains(pageURLHelp(true), "modo demo") || strings.Contains(pageURLHelp(false), "demo") {
 		t.Error("page URL help must mention demo only in demo mode")
 	}
-	var choice, custom string
+	var choice, custom, method string
 	consent := true
 	opts := &AuthOptions{Universities: []University{{Name: "U", Domain: "c.uni.cl"}}, Demo: true}
-	if got := len(buildAuthGroups(opts, "c.uni.cl", &choice, &custom, &consent)); got != 1 {
+	if got := len(buildAuthGroups(opts, "c.uni.cl", &choice, &custom, &method, &consent)); got != 1 {
 		t.Errorf("preset domain should leave only the consent group, got %d", got)
 	}
 }

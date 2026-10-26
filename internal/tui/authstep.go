@@ -26,6 +26,18 @@ type AuthOptions struct {
 	// course page, Scan lists its resources and they pick what to download.
 	// pageURL is always on the chosen campus. Pasting links stays as a fallback.
 	Scan func(ctx context.Context, pageURL, cookie string) ([]Resource, error)
+	// Login exchanges the campus username and password for a mobile-API token
+	// (ADR 006). When nil the wizard keeps the browser-cookie flow only. The
+	// password must not be kept, logged or put in errors; campus is the host.
+	Login func(ctx context.Context, campus, user, pass string) (token string, err error)
+	// Courses lists the user's courses. Expired tokens must return an error
+	// wrapping domain.ErrAuthenticationFailed.
+	Courses func(ctx context.Context, campus, token string) ([]Course, error)
+	// Contents lists the sections and files of one course. URLs carry no token.
+	Contents func(ctx context.Context, campus, token string, courseID int) ([]Section, error)
+	// DefaultAuth preselects the entry method: "api" (default when Login is
+	// set) or "cookie".
+	DefaultAuth string
 	// Demo marks a guided showcase run: screens carry a [MODO DEMO] tag and
 	// the consent screen says that no browser is read. Detect and Scan are
 	// expected to be simulated by the caller.
@@ -53,13 +65,14 @@ func tagged(title string, demo bool) string {
 
 const consentText = "MooFetch leerá SOLO la cookie MoodleSession de tu campus en tus navegadores (Chrome, Chromium, Edge, Firefox, Opera, Brave y Safari en macOS).\nSe usa solo en memoria: no se guarda en disco ni se registra."
 
-// RunInteractiveFormWithAuth shows the splash, then asks for the campus and the
-// consent (one decision per screen), tries to detect the cookie and finally
-// runs the cookie/URLs form. Any failure or refusal falls back to manual
-// cookie pasting.
+// RunInteractiveFormWithAuth shows the splash, then asks for the campus and
+// how to sign in. With Login set the default is username and password through
+// the mobile API (courses -> sections -> files); otherwise, or when chosen, it
+// asks for the consent, tries to detect the browser cookie and runs the
+// cookie/URLs form. Any failure or refusal falls back to manual pasting.
 func RunInteractiveFormWithAuth(ctx context.Context, opts *AuthOptions, isDemo bool) (*FormData, error) {
 	// Demo without a simulated scan keeps the plain two-step demo form.
-	if opts == nil || opts.Detect == nil || (isDemo && opts.Scan == nil) {
+	if opts == nil || (opts.Login == nil && (opts.Detect == nil || (isDemo && opts.Scan == nil))) {
 		return RunInteractiveForm(isDemo)
 	}
 	notice := opts.Notice
@@ -67,15 +80,37 @@ func RunInteractiveFormWithAuth(ctx context.Context, opts *AuthOptions, isDemo b
 		notice = io.Discard
 	}
 
-	domain, consent, err := askAuthStep(opts)
+	sel, err := askAuthStep(opts)
 	if err != nil {
 		return nil, err
 	}
 
+	if sel.method == authAPI {
+		data, out, aerr := runAPIFlow(ctx, opts, sel.domain, notice, isDemo)
+		if aerr != nil || data != nil {
+			return data, aerr
+		}
+		if out == apiManual {
+			return runForm(newInteractiveForm(isDemo, ""), false)
+		}
+		// The consent screen was skipped on the API route: ask it now.
+		sel.consent = false
+		if sel.domain != "" && opts.Detect != nil {
+			if sel.consent, err = askDetectConsent(opts); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return runCookieFlow(ctx, opts, sel.domain, sel.consent, notice, isDemo)
+}
+
+// runCookieFlow detects (when allowed) the browser cookie and then scans a
+// course page or asks for links.
+func runCookieFlow(ctx context.Context, opts *AuthOptions, campus string, consent bool, notice io.Writer, isDemo bool) (*FormData, error) {
 	cookie := ""
-	if consent && domain != "" {
-		_, _ = fmt.Fprintf(notice, "Buscando la cookie de %s en tus navegadores...\n", domain)
-		c, derr := opts.Detect(ctx, domain)
+	if consent && campus != "" && opts.Detect != nil {
+		_, _ = fmt.Fprintf(notice, "Buscando la cookie de %s en tus navegadores...\n", campus)
+		c, derr := opts.Detect(ctx, campus)
 		if derr != nil {
 			_, _ = fmt.Fprintf(notice, "%v Pégala manualmente.\n", derr)
 		} else {
@@ -84,39 +119,54 @@ func RunInteractiveFormWithAuth(ctx context.Context, opts *AuthOptions, isDemo b
 		}
 	}
 	if opts.Scan != nil {
-		return runScanFlow(ctx, opts, domain, cookie, notice, isDemo)
+		return runScanFlow(ctx, opts, campus, cookie, notice, isDemo)
 	}
 	// The splash was already shown before the campus question.
 	return runForm(newInteractiveForm(false, cookie), false)
 }
 
-// askAuthStep runs the splash followed by the campus and consent screens in a
-// single Bubble Tea program (the splash wraps the form).
-func askAuthStep(opts *AuthOptions) (domain string, consent bool, err error) {
-	domain = opts.Domain
+// authChoice is what the first screens of the wizard collected.
+type authChoice struct {
+	domain  string
+	method  string // authAPI or authCookie ("" when Login is not set)
+	consent bool
+}
+
+// askAuthStep runs the splash followed by the campus, sign-in method and
+// consent screens in a single Bubble Tea program (the splash wraps the form).
+func askAuthStep(opts *AuthOptions) (authChoice, error) {
+	domain := opts.Domain
 	choice := ""
 	custom := ""
-	consent = true
+	consent := true
+	method := ""
+	if opts.Login != nil {
+		method = authAPI
+		if opts.DefaultAuth == authCookie {
+			method = authCookie
+		}
+	}
 
-	form := newForm(buildAuthGroups(opts, domain, &choice, &custom, &consent)...)
+	form := newForm(buildAuthGroups(opts, domain, &choice, &custom, &method, &consent)...)
 	splash := NewSplash(form)
 	p := tea.NewProgram(splash, programOptions()...)
 	if _, err := p.Run(); err != nil {
-		return "", false, err
+		return authChoice{}, err
 	}
 	if splash.Aborted() || form.State != huh.StateCompleted {
-		return "", false, ErrFormAborted
+		return authChoice{}, ErrFormAborted
 	}
 
 	if domain == "" {
 		domain = resolveChosenDomain(opts, choice, custom)
 	}
-	return domain, consent, nil
+	return authChoice{domain: domain, method: method, consent: consent}, nil
 }
 
 // buildAuthGroups returns one group per screen: campus (skipped when the
-// domain is preset), custom domain (only for "Otra…") and consent.
-func buildAuthGroups(opts *AuthOptions, domain string, choice, custom *string, consent *bool) []*huh.Group {
+// domain is preset), custom domain (only for "Otra…"), sign-in method (only
+// when Login is set) and consent (hidden when signing in with the API).
+func buildAuthGroups(opts *AuthOptions, domain string, choice, custom, method *string, consent *bool) []*huh.Group {
 	var groups []*huh.Group
 	if domain == "" {
 		options := make([]huh.Option[string], 0, len(opts.Universities)+1)
@@ -141,16 +191,41 @@ func buildAuthGroups(opts *AuthOptions, domain string, choice, custom *string, c
 					return verr
 				})).WithHideFunc(func() bool { return *choice != otherDomain }))
 	}
+	if opts.Login != nil {
+		groups = append(groups, huh.NewGroup(huh.NewSelect[string]().
+			Title(tagged("¿Cómo quieres entrar?", opts.Demo)).
+			Options(
+				huh.NewOption("Usuario y contraseña del campus (recomendado)", authAPI),
+				huh.NewOption("Cookie de mi navegador", authCookie),
+			).
+			Value(method)))
+	}
+	return append(groups, consentGroup(opts, consent).
+		WithHideFunc(func() bool { return *method == authAPI }))
+}
+
+// consentGroup is the "detect the cookie from your browser?" screen.
+func consentGroup(opts *AuthOptions, consent *bool) *huh.Group {
 	consentDesc := consentText
 	if opts.Demo {
 		consentDesc = demoConsentText
 	}
-	return append(groups, huh.NewGroup(huh.NewConfirm().
+	return huh.NewGroup(huh.NewConfirm().
 		Title(tagged("¿Detectar la cookie automáticamente desde tu navegador?", opts.Demo)).
 		Description(consentDesc).
 		Affirmative("Sí, detectar").
 		Negative("No, pegar manualmente").
-		Value(consent)))
+		Value(consent))
+}
+
+// askDetectConsent asks the cookie consent on its own, for when the API route
+// fell back to the browser cookie.
+func askDetectConsent(opts *AuthOptions) (bool, error) {
+	consent := true
+	if err := runHuh(newForm(consentGroup(opts, &consent))); err != nil {
+		return false, err
+	}
+	return consent, nil
 }
 
 func resolveChosenDomain(opts *AuthOptions, choice, custom string) string {
