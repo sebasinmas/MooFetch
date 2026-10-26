@@ -116,6 +116,8 @@ changelog:
   sort: asc
   use: github
   abbrev: 7 # hash corto en cada línea (GitHub lo enlaza al commit)
+  # Sin autor si GitHub no lo resuelve: el formato por defecto dejaba "( <>)".
+  format: "{{ .SHA }}: {{ .Message }}{{ with .AuthorUsername }} (@{{ . }}){{ end }}"
   filters:
     exclude:
       # Tipos que no le interesan al usuario final (plano o con scope).
