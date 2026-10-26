@@ -11,9 +11,9 @@
 [![Go](https://img.shields.io/github/go-mod/go-version/sebasinmas/MooFetch?style=for-the-badge&logo=go&logoColor=white&color=00ADD8)](https://golang.org)
 [![Licencia MIT](https://img.shields.io/github/license/sebasinmas/MooFetch?style=for-the-badge&color=green)](LICENSE)
 
-<img src="docs/assets/demo.gif" alt="MooFetch en acción: elección de campus, lectura del curso, selección de recursos por nombre y descargas concurrentes" width="880">
+<img src="docs/assets/demo.gif" alt="MooFetch en acción: inicio de sesión en el campus, elección de cursos, secciones y archivos por nombre, y descargas concurrentes" width="880">
 
-*Demostración simulada (`moofetch --demo`): muestra las mismas pantallas que la app real, sin red ni cookie.*
+*Demostración simulada (`moofetch --demo`): muestra las mismas pantallas que la app real, sin red ni credenciales reales.*
 
 [¿Por qué?](#-por-qué-moofetch) • [Instalación](#-instalación) • [Cómo usarlo](#-cómo-usarlo) • [Scripts y pipelines](#-scripts-y-pipelines) • [Privacidad](#-privacidad) • [Roadmap](#-roadmap) • [Para desarrolladores](#-para-desarrolladores)
 
